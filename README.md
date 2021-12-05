@@ -2,7 +2,13 @@
 
 Seaborn-like API, but with plotly under the hood.
 
-Demo:
+## Installation
+
+```python
+pip install -U bornly
+```
+
+## Demo
 
 ```python
 import bornly as bs
