@@ -4,8 +4,10 @@ Seaborn-like API, but with plotly under the hood.
 
 ## Installation
 
-```python
-pip install -U bornly
+Note: the `$` is not part of the command:
+
+```console
+$ pip install -U bornly
 ```
 
 ## Demo
