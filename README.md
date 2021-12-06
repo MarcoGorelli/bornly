@@ -2,6 +2,8 @@
 
 Seaborn-like API, but with plotly under the hood.
 
+Very much work in progress!
+
 ## Installation
 
 Note: the `$` is not part of the command:
