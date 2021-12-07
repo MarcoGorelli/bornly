@@ -17,7 +17,11 @@ COLOR_PALETTE = [
 ]
 
 def get_colors(n, alpha):
-    return [f"rgba({color[0]}, {color[1]}, {color[2]}, {alpha})" for color in COLOR_PALETTE[:n]]
+    if n == -1:
+        colors = COLOR_PALETTE
+    else:
+        colors = COLOR_PALETTE[:n]
+    return [f"rgba({color[0]}, {color[1]}, {color[2]}, {alpha})" for color in colors]
 
 def _plot_hue(df_, name, label, color, x, y):
     rgb = f"rgba({color[0]}, {color[1]}, {color[2]}"
@@ -31,8 +35,8 @@ def _plot_hue(df_, name, label, color, x, y):
         color_discrete_map={f"{y}_lower": fill_rgba, f"{y}_upper": fill_rgba},
     )
 
-    fig.update_traces(  # is this necessary? what's interval?
-        name="interval", selector=dict(name=f"{y}_upper"), showlegend=False
+    fig.update_traces(
+        selector=dict(name=f"{y}_upper"), showlegend=False
     )
     fig.update_traces(fill="tonexty")
     if name is None:
@@ -62,7 +66,12 @@ def lineplot(data, x, y, hue=None, color_palette=None):
         group = [x]
     else:
         group = [hue, x]
-    err = data.groupby(group)[y].std() / np.sqrt(data.groupby(group)[y].size())
+
+    n_ = data.groupby(group)[y].size()
+    if (n_ == 1).all():
+        return px.line(data.sort_values(x), x=x, y=y, color=hue, color_discrete_sequence=get_colors(-1, 1))
+
+    err = data.groupby(group)[y].std() / np.sqrt(n_)
     pdf = data.groupby(group)[y].mean().reset_index()
     pdf[f"{y}_upper"] = pdf[y] + 1.96 * pdf.set_index(group).index.map(err)
     pdf[f"{y}_lower"] = pdf[y] - 1.96 * pdf.set_index(group).index.map(err)
@@ -77,13 +86,15 @@ def lineplot(data, x, y, hue=None, color_palette=None):
     figs = []
     if color_palette is None:
         color_palette = COLOR_PALETTE
-
     if hue is not None:
         for hue_, color in zip(pdf[hue].unique(), color_palette):
             df_ = pdf[pdf[hue] == hue_].copy()
             figs.append(_plot_hue(df_, y, hue_, color, x, y))
     else:
         figs.append(_plot_hue(pdf, None, None, color_palette[0], x, y))
+
+    if not figs:
+        return go.Figure()
 
     data = figs[0].data
     for fig in figs[1:]:
