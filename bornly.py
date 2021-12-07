@@ -16,12 +16,14 @@ COLOR_PALETTE = [
     (23.0, 190.0, 207.0),
 ]
 
+
 def get_colors(n, alpha):
     if n == -1:
         colors = COLOR_PALETTE
     else:
         colors = COLOR_PALETTE[:n]
     return [f"rgba({color[0]}, {color[1]}, {color[2]}, {alpha})" for color in colors]
+
 
 def _plot_hue(df_, name, label, color, x, y):
     rgb = f"rgba({color[0]}, {color[1]}, {color[2]}"
@@ -35,9 +37,7 @@ def _plot_hue(df_, name, label, color, x, y):
         color_discrete_map={f"{y}_lower": fill_rgba, f"{y}_upper": fill_rgba},
     )
 
-    fig.update_traces(
-        selector=dict(name=f"{y}_upper"), showlegend=False
-    )
+    fig.update_traces(selector=dict(name=f"{y}_upper"), showlegend=False)
     fig.update_traces(fill="tonexty")
     if name is None:
         fig.update_traces(
@@ -60,6 +60,7 @@ def _plot_hue(df_, name, label, color, x, y):
     )
     return fig
 
+
 def lineplot(data, x, y, hue=None, color_palette=None):
 
     if hue is None:
@@ -69,7 +70,13 @@ def lineplot(data, x, y, hue=None, color_palette=None):
 
     n_ = data.groupby(group)[y].size()
     if (n_ == 1).all():
-        return px.line(data.sort_values(x), x=x, y=y, color=hue, color_discrete_sequence=get_colors(-1, 1))
+        return px.line(
+            data.sort_values(x),
+            x=x,
+            y=y,
+            color=hue,
+            color_discrete_sequence=get_colors(-1, 1),
+        )
 
     err = data.groupby(group)[y].std() / np.sqrt(n_)
     pdf = data.groupby(group)[y].mean().reset_index()
