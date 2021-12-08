@@ -1,4 +1,5 @@
 import numpy as np
+from plotly.subplots import make_subplots
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -15,6 +16,76 @@ COLOR_PALETTE = [
     (188.0, 189.0, 34.0),
     (23.0, 190.0, 207.0),
 ]
+import functools
+
+
+class Ax:
+    def __init__(self, func):
+        self.func = func
+        self.row = self.func.keywords["row"]
+        self.col = self.func.keywords["col"]
+
+    def __call__(self, figure):
+        return self.func(figure)
+
+    @property
+    def _figure(self):
+        return self.func.keywords["figure"]
+
+    def _find_annotation(self):
+        return self._figure.layout.annotations[self.row * 2 + self.col]
+
+    def set_title(self, title):
+        annotation = self._find_annotation()
+        if title is not None:
+            annotation.update(text=title)
+        else:
+            annotation.update(text="")
+
+    def set_ylabel(self, label):
+        self._figure.update_yaxes(title_text=label, row=self.row + 1, col=self.col + 1)
+
+    def set_xlabel(self, label):
+        self._figure.update_xaxes(title_text=label, row=self.row + 1, col=self.col + 1)
+
+    def set_ylim(self, ylim):
+        self._figure.update_yaxes(range=ylim, row=self.row + 1, col=self.col + 1)
+
+    def set_xlim(self, xlim):
+        self._figure.update_xaxes(range=xlim, row=self.row + 1, col=self.col + 1)
+
+    def set(self, **kwargs):
+        for key, val in kwargs.items():
+            getattr(self, f"set_{key}")(val)
+
+
+def _add_to_fig(subplot, figure, row, col):
+    for data in subplot.data:
+        figure.add_trace(data, row=row + 1, col=col + 1)
+
+
+def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
+    fig = make_subplots(
+        nrows,
+        ncols,
+        shared_xaxes=sharex,
+        shared_yaxes=sharey,
+        subplot_titles=["placeholder" for _ in range(nrows) for __ in range(ncols)],
+    )
+    for annotation in fig.layout.annotations:
+        annotation.update(text="")
+    ax = [
+        [
+            Ax(functools.partial(_add_to_fig, figure=fig, row=row, col=col))
+            for col in range(ncols)
+        ]
+        for row in range(nrows)
+    ]
+    if (nrows == 1) and (ncols == 1):
+        return fig, ax[0][0]
+    if (nrows == 1) or (ncols == 1):
+        return fig, np.asarray(ax).flatten()
+    return fig, np.asarray(ax)
 
 
 def get_colors(n, alpha):
@@ -61,7 +132,7 @@ def _plot_hue(df_, name, label, color, x, y):
     return fig
 
 
-def lineplot(data, x, y, hue=None, color_palette=None):
+def lineplot(data, x, y, hue=None, color_palette=None, ax=None):
 
     if hue is None:
         group = [x]
@@ -70,53 +141,59 @@ def lineplot(data, x, y, hue=None, color_palette=None):
 
     n_ = data.groupby(group)[y].size()
     if (n_ == 1).all():
-        return px.line(
+        figure = px.line(
             data.sort_values(x),
             x=x,
             y=y,
             color=hue,
             color_discrete_sequence=get_colors(-1, 1),
         )
-
-    err = data.groupby(group)[y].std() / np.sqrt(n_)
-    pdf = data.groupby(group)[y].mean().reset_index()
-    pdf[f"{y}_upper"] = pdf[y] + 1.96 * pdf.set_index(group).index.map(err)
-    pdf[f"{y}_lower"] = pdf[y] - 1.96 * pdf.set_index(group).index.map(err)
-    pdf = pd.melt(pdf, id_vars=group)
-
-    if hue is None:
-        ascending = [True, True]
     else:
-        ascending = [False, True, True]
-    pdf = pdf.sort_values(group + ["variable"], ascending=ascending)
+        err = data.groupby(group)[y].std() / np.sqrt(n_)
+        pdf = data.groupby(group)[y].mean().reset_index()
+        pdf[f"{y}_upper"] = pdf[y] + 1.96 * pdf.set_index(group).index.map(err)
+        pdf[f"{y}_lower"] = pdf[y] - 1.96 * pdf.set_index(group).index.map(err)
+        pdf = pd.melt(pdf, id_vars=group)
 
-    figs = []
-    if color_palette is None:
-        color_palette = COLOR_PALETTE
-    if hue is not None:
-        for hue_, color in zip(pdf[hue].unique(), color_palette):
-            df_ = pdf[pdf[hue] == hue_].copy()
-            figs.append(_plot_hue(df_, y, hue_, color, x, y))
+        if hue is None:
+            ascending = [True, True]
+        else:
+            ascending = [False, True, True]
+        pdf = pdf.sort_values(group + ["variable"], ascending=ascending)
+
+        figs = []
+        if color_palette is None:
+            color_palette = COLOR_PALETTE
+        if hue is not None:
+            for hue_, color in zip(pdf[hue].unique(), color_palette):
+                df_ = pdf[pdf[hue] == hue_].copy()
+                figs.append(_plot_hue(df_, y, hue_, color, x, y))
+        else:
+            figs.append(_plot_hue(pdf, None, None, color_palette[0], x, y))
+
+        if figs:
+            data = figs[0].data
+            for fig in figs[1:]:
+                data = data + fig.data
+            figure = go.Figure(data=data)
+
+        if hue is None:
+            figure.update_layout(
+                xaxis_title=x,
+                yaxis_title=y,
+            )
+        else:
+            figure.update_layout(
+                xaxis_title=x,
+                yaxis_title=y,
+                legend_title=hue,
+            )
+
+    if ax is None:
+        return figure
     else:
-        figs.append(_plot_hue(pdf, None, None, color_palette[0], x, y))
-
-    if not figs:
-        return go.Figure()
-
-    data = figs[0].data
-    for fig in figs[1:]:
-        data = data + fig.data
-    figure = go.Figure(data=data)
-
-    if hue is None:
-        figure.update_layout(
-            xaxis_title=x,
-            yaxis_title=y,
-        )
-    else:
-        figure.update_layout(
-            xaxis_title=x,
-            yaxis_title=y,
-            legend_title=hue,
-        )
-    return figure
+        names_already_in_legend = {i.name for i in ax._figure.data if i.showlegend}
+        for i in figure.data:
+            if i.showlegend and i.name in names_already_in_legend:
+                i.showlegend = False
+        ax(figure)
