@@ -3,6 +3,7 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import scipy.stats as stats
 
 COLOR_PALETTE = [
     (31.0, 119.0, 180.0),
@@ -142,7 +143,7 @@ def lineplot(data, x, y, hue=None, color_palette=None, ax=None):
     n_ = data.groupby(group)[y].size()
     if (n_ == 1).all():
         figure = px.line(
-            data.sort_values(x),
+            data.sort_values(group),
             x=x,
             y=y,
             color=hue,
@@ -197,3 +198,40 @@ def lineplot(data, x, y, hue=None, color_palette=None, ax=None):
             if i.showlegend and i.name in names_already_in_legend:
                 i.showlegend = False
         ax(figure)
+
+def scatterplot(data, x, y, hue=None, color_palette=None, ax=None):
+
+    if hue is None:
+        group = [x]
+    else:
+        group = [hue, x]
+
+    figure = px.scatter(
+        data.sort_values(group),
+        x=x,
+        y=y,
+        color=hue,
+        color_discrete_sequence=get_colors(-1, 1),
+    )
+
+    if ax is None:
+        return figure
+    else:
+        names_already_in_legend = {i.name for i in ax._figure.data if i.showlegend}
+        for i in figure.data:
+            if i.showlegend and i.name in names_already_in_legend:
+                i.showlegend = False
+        ax(figure)
+
+def regplot(data, x, y):
+    x_grid = np.linspace(data[x].min(), data[x].max(), 100)
+    reg = stats.linregress(data[x], data[y])
+    yhat = reg.intercept + reg.slope*x_grid
+
+    fig, ax = subplots()
+    scatterplot(data, x=x, y=y, ax=ax)
+    lineplot(pd.DataFrame({f'{y}_hat': yhat, x: x_grid}), x=x, y=f'{y}_hat', ax=ax)
+    ax.set_xlabel(x)
+    ax.set_ylabel(y)
+    return fig
+    
