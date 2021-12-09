@@ -1,8 +1,10 @@
+import functools
+
 import numpy as np
-from plotly.subplots import make_subplots
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 COLOR_PALETTE = [
     (31.0, 119.0, 180.0),
@@ -16,14 +18,13 @@ COLOR_PALETTE = [
     (188.0, 189.0, 34.0),
     (23.0, 190.0, 207.0),
 ]
-import functools
 
 
 class Ax:
     def __init__(self, func, *, nrows, ncols):
         self._func = func
-        self._row = self.func.keywords["row"]
-        self._col = self.func.keywords["col"]
+        self._row = func.keywords["row"]
+        self._col = func.keywords["col"]
         self._nrows = nrows
         self._ncols = ncols
 
