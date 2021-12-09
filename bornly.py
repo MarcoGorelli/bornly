@@ -20,7 +20,7 @@ import functools
 
 
 class Ax:
-    def __init__(self, func, nrows, ncols):
+    def __init__(self, func, *, nrows, ncols):
         self._func = func
         self._row = self.func.keywords["row"]
         self._col = self.func.keywords["col"]
@@ -85,7 +85,9 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
             Ax(
                 functools.partial(
                     _add_to_fig, figure=fig, row=row, col=col, nrows=nrows, ncols=ncols
-                )
+                ),
+                nrows=nrows,
+                ncols=ncols,
             )
             for col in range(ncols)
         ]
