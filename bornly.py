@@ -36,7 +36,7 @@ class Ax:
         return self._func.keywords["figure"]
 
     def _find_annotation(self):
-        return self._figure.layout.annotations[self._row * 2 + self._col]
+        return self._figure.layout.annotations[self._row * self._ncols + self._col]
 
     def set_title(self, title):
         annotation = self._find_annotation()
