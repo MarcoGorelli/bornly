@@ -84,9 +84,7 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
     ax = [
         [
             Ax(
-                functools.partial(
-                    _add_to_fig, figure=fig, row=row, col=col, nrows=nrows, ncols=ncols
-                ),
+                functools.partial(_add_to_fig, figure=fig, row=row, col=col),
                 nrows=nrows,
                 ncols=ncols,
             )
