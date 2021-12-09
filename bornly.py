@@ -1,9 +1,11 @@
+import functools
+
 import numpy as np
-from plotly.subplots import make_subplots
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import scipy.stats as stats
+from plotly.subplots import make_subplots
 
 COLOR_PALETTE = [
     (31.0, 119.0, 180.0),
@@ -17,24 +19,25 @@ COLOR_PALETTE = [
     (188.0, 189.0, 34.0),
     (23.0, 190.0, 207.0),
 ]
-import functools
 
 
 class Ax:
-    def __init__(self, func):
-        self.func = func
-        self.row = self.func.keywords["row"]
-        self.col = self.func.keywords["col"]
+    def __init__(self, func, *, nrows, ncols):
+        self._func = func
+        self._row = func.keywords["row"]
+        self._col = func.keywords["col"]
+        self._nrows = nrows
+        self._ncols = ncols
 
     def __call__(self, figure):
-        return self.func(figure)
+        return self._func(figure)
 
     @property
     def _figure(self):
-        return self.func.keywords["figure"]
+        return self._func.keywords["figure"]
 
     def _find_annotation(self):
-        return self._figure.layout.annotations[self.row * 2 + self.col]
+        return self._figure.layout.annotations[self._row * self._ncols + self._col]
 
     def set_title(self, title):
         annotation = self._find_annotation()
@@ -44,16 +47,20 @@ class Ax:
             annotation.update(text="")
 
     def set_ylabel(self, label):
-        self._figure.update_yaxes(title_text=label, row=self.row + 1, col=self.col + 1)
+        self._figure.update_yaxes(
+            title_text=label, row=self._row + 1, col=self._col + 1
+        )
 
     def set_xlabel(self, label):
-        self._figure.update_xaxes(title_text=label, row=self.row + 1, col=self.col + 1)
+        self._figure.update_xaxes(
+            title_text=label, row=self._row + 1, col=self._col + 1
+        )
 
     def set_ylim(self, ylim):
-        self._figure.update_yaxes(range=ylim, row=self.row + 1, col=self.col + 1)
+        self._figure.update_yaxes(range=ylim, row=self._row + 1, col=self._col + 1)
 
     def set_xlim(self, xlim):
-        self._figure.update_xaxes(range=xlim, row=self.row + 1, col=self.col + 1)
+        self._figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
 
     def set(self, **kwargs):
         for key, val in kwargs.items():
@@ -77,7 +84,11 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
         annotation.update(text="")
     ax = [
         [
-            Ax(functools.partial(_add_to_fig, figure=fig, row=row, col=col))
+            Ax(
+                functools.partial(_add_to_fig, figure=fig, row=row, col=col),
+                nrows=nrows,
+                ncols=ncols,
+            )
             for col in range(ncols)
         ]
         for row in range(nrows)
