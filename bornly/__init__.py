@@ -68,15 +68,17 @@ class Ax:
         for key, val in kwargs.items():
             getattr(self, f"set_{key}")(val)
 
-    def fill_between(self, x, y1, y2, alpha, color, legend=None, label=None):
+    def fill_between(self, x, y1, y2, alpha=None, color=None, rgba=None, legend=None, label=None):
         # need to figure this out if I want to make progress...
+        if rgba is None and color is not None and alpha is not None:
+            rgba = _convert_color(color, alpha)
         self._figure.add_traces(go.Scatter(x=x, y = y2,
                                 line = dict(color='rgba(0,0,0,0)'), showlegend=False))
 
         self._figure.add_traces(go.Scatter(x=x, y = y1,
                                 line = dict(color='rgba(0,0,0,0)'),
                                 fill='tonexty', 
-                                fillcolor=_convert_color(color, alpha),
+                                fillcolor=rgba,
                                 showlegend=legend,
                                 name=label,
                                 ))
@@ -117,6 +119,10 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
 
 def _convert_color(color, alpha):
     return f'rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})'
+def _deconvert_rgba(rgba, alpha):
+    import re
+    re.findall(r'\d+', rgba)
+    breakpoint()
 
 def _get_colors(n, alpha, palette=None):
     if palette is None:
@@ -165,69 +171,6 @@ def _plot_hue(df_, name, label, color, x, y):
     return fig
 
 
-def lineplot(data, x, y, hue=None, ax=None):
-
-    if hue is None:
-        group = [x]
-    else:
-        group = [hue, x]
-
-    n_ = data.groupby(group)[y].size()
-    if (n_ == 1).all():
-        figure = px.line(
-            data.sort_values(group),
-            x=x,
-            y=y,
-            color=hue,
-            color_discrete_sequence=_get_colors(-1, 1),
-        )
-    else:
-        err = data.groupby(group)[y].std() / np.sqrt(n_)
-        pdf = data.groupby(group)[y].mean().reset_index()
-        pdf[f"{y}_upper"] = pdf[y] + 1.96 * pdf.set_index(group).index.map(err)
-        pdf[f"{y}_lower"] = pdf[y] - 1.96 * pdf.set_index(group).index.map(err)
-        pdf = pd.melt(pdf, id_vars=group)
-
-        if hue is None:
-            ascending = [True, True]
-        else:
-            ascending = [False, True, True]
-        pdf = pdf.sort_values(group + ["variable"], ascending=ascending)
-
-        figs = []
-        if hue is not None:
-            for hue_, color in zip(pdf[hue].unique(), COLOR_PALETTE):
-                df_ = pdf[pdf[hue] == hue_].copy()
-                figs.append(_plot_hue(df_, y, hue_, color, x, y))
-        else:
-            figs.append(_plot_hue(pdf, None, None, COLOR_PALETTE[0], x, y))
-
-        if figs:
-            data = figs[0].data
-            for fig in figs[1:]:
-                data = data + fig.data
-            figure = go.Figure(data=data)
-
-        if hue is None:
-            figure.update_layout(
-                xaxis_title=x,
-                yaxis_title=y,
-            )
-        else:
-            figure.update_layout(
-                xaxis_title=x,
-                yaxis_title=y,
-                legend_title=hue,
-            )
-
-    if ax is None:
-        return figure
-    else:
-        names_already_in_legend = {i.name for i in ax._figure.data if i.showlegend}
-        for i in figure.data:
-            if i.showlegend and i.name in names_already_in_legend:
-                i.showlegend = False
-        ax(figure)
 
 class ScatterPlotter(_sns.relational._ScatterPlotter):
 
@@ -335,7 +278,7 @@ class LinePlotter(_sns.relational._LinePlotter):
             raise ValueError(err.format(self.err_style))
 
         # Initialize the aggregation object
-        agg = _sns.EstimateAggregator(
+        agg = _sns._statistics.EstimateAggregator(
             self.estimator, self.errorbar, n_boot=self.n_boot, seed=self.seed,
         )
 
@@ -350,7 +293,7 @@ class LinePlotter(_sns.relational._LinePlotter):
         # If we want to use nas, we need to conditionalize dropna in iter_data.
 
         # Loop over the semantic subsets and add to the plot
-        grouping_vars = "hue", "size", "style"
+        grouping_vars = "hue"#, "size", "style"
         for sub_vars, sub_data in self.iter_data(grouping_vars, from_comp_data=True):
 
             if self.sort:
@@ -376,55 +319,44 @@ class LinePlotter(_sns.relational._LinePlotter):
 
             # --- Draw the main line(s)
 
-            if "units" in self.variables:   # XXX why not add to grouping variables?
-                lines = []
-                for _, unit_data in sub_data.groupby("units"):
-                    lines.extend(ax.plot(unit_data["x"], unit_data["y"], **kws))
+            if 'hue' in sub_vars:
+                sub_data['hue'] = sub_vars['hue']
+            plotting_kwargs = {
+                'data_frame': sub_data.rename(columns=self.variables),
+                'x': self.variables['x'],
+                'y': self.variables['y'],
+            }
+            if 'hue' in sub_vars:
+                plotting_kwargs['color'] = self.variables['hue']
+                line_color = _convert_color(self._hue_map(sub_vars['hue']), 1)
+                fill_color = _convert_color(self._hue_map(sub_vars['hue']), .2)
             else:
-                lines = ax.plot(sub_data["x"], sub_data["y"], **kws)
-
-            for line in lines:
-
-                if "hue" in sub_vars:
-                    line.set_color(self._hue_map(sub_vars["hue"]))
-
-                if "size" in sub_vars:
-                    line.set_linewidth(self._size_map(sub_vars["size"]))
-
-                if "style" in sub_vars:
-                    attributes = self._style_map(sub_vars["style"])
-                    if "dashes" in attributes:
-                        line.set_dashes(attributes["dashes"])
-                    if "marker" in attributes:
-                        line.set_marker(attributes["marker"])
-
-            line_color = line.get_color()
-            line_alpha = line.get_alpha()
+                line_color = _get_colors(1, 1)[0]
+                fill_color = _get_colors(1, .2)[0]
+            plotting_kwargs['color_discrete_sequence'] = [line_color]
+                
+            fig = px.line(**plotting_kwargs)
+            ax(fig)
+            ax.set_xlabel(self.variables['x'])
+            ax.set_ylabel(self.variables['y'])
 
             # --- Draw the confidence intervals
 
             if self.estimator is not None and self.errorbar is not None:
 
-                # TODO handling of orientation will need to happen here
+            #     # TODO handling of orientation will need to happen here
 
-                if self.err_style == "band":
+                ax.fill_between(
+                    sub_data["x"], sub_data["ymin"], sub_data["ymax"],
+                    rgba=fill_color,
+                    legend=False,
+                )
 
-                    ax.fill_between(
-                        sub_data["x"], sub_data["ymin"], sub_data["ymax"],
-                        color=line_color, **err_kws
-                    )
+                if self.err_style == "bars":
+                    raise NotImplementedError('Can\'t use bars are err_style')
 
-                elif self.err_style == "bars":
-
-                    error_deltas = (
-                        sub_data["y"] - sub_data["ymin"],
-                        sub_data["ymax"] - sub_data["y"],
-                    )
-                    ebars = ax.errorbar(
-                        sub_data["x"], sub_data["y"], error_deltas,
-                        linestyle="", color=line_color, alpha=line_alpha,
-                        **err_kws
-                    )
+        if 'hue' in sub_vars:
+            ax._figure.update_layout(legend_title=self.variables['hue'])
 
 
 
