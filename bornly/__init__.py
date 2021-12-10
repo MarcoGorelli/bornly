@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import scipy.stats as stats
 from plotly.subplots import make_subplots
-from seaborn.relational import _ScatterPlotter
+from bornly._seaborn.seaborn.relational import _ScatterPlotter
 
 COLOR_PALETTE = [
     (31.0, 119.0, 180.0),
@@ -247,31 +247,6 @@ class ScatterPlotter(_ScatterPlotter):
         if data.empty:
             return
 
-        # Define the vectors of x and y positions
-        empty = np.full(len(data), np.nan)
-        x = data.get("x", empty)
-        y = data.get("y", empty)
-
-        if "style" in self.variables:
-            # Use a representative marker so scatter sets the edgecolor
-            # properly for line art markers. We currently enforce either
-            # all or none line art so this works.
-            example_level = self._style_map.levels[0]
-            example_marker = self._style_map(example_level, "marker")
-            kws.setdefault("marker", example_marker)
-
-        # Conditionally set the marker edgecolor based on whether the marker is "filled"
-        # See https://github.com/matplotlib/matplotlib/issues/17849 for context
-        # m = kws.get("marker", mpl.rcParams.get("marker", "o"))
-        # if not isinstance(m, mpl.markers.MarkerStyle):
-        #     m = mpl.markers.MarkerStyle(m)
-        # if m.is_filled():
-        #     kws.setdefault("edgecolor", "w")
-
-        # TODO this makes it impossible to vary alpha with hue which might
-        # otherwise be useful? Should we just pass None?
-        kws["alpha"] = 1 if self.alpha == "auto" else self.alpha
-
         # Draw the scatter plot
         plotting_kwargs = {
             'data_frame': data,
@@ -284,33 +259,14 @@ class ScatterPlotter(_ScatterPlotter):
         if 'size' in self.variables:
             plotting_kwargs = {**plotting_kwargs, **{'size': self.variables['size']}}
         fig = px.scatter(**plotting_kwargs)
-        # points = ax.scatter(x=x, y=y, **kws)
+        ax.set_xlabel(self.variables['x'])
+        ax.set_ylabel(self.variables['y'])
 
-        # Apply the mapping from semantic variables to artist attributes
-
-
-        # if "size" in self.variables:
-        #     points.set_sizes(self._size_map(data["size"]))
-
-        # if "style" in self.variables:
-        #     p = [self._style_map(val, "path") for val in data["style"]]
-        #     points.set_paths(p)
-
-        # Apply dependent default attributes
-
-        # if "linewidth" not in kws:
-        #     sizes = points.get_sizes()
-        #     points.set_linewidths(.08 * np.sqrt(np.percentile(sizes, 10)))
-
-        # # Finalize the axes details
-        # self._add_axis_labels(ax)
-        # if self.legend:
-        #     self.add_legend_data(ax)
-        #     handles, _ = ax.get_legend_handles_labels()
-        #     if handles:
-        #         legend = ax.legend(title=self.legend_title)
-        #         adjust_legend_subtitles(legend)
-        return fig
+        if not self.legend:
+            for i in fig.data:
+                i.showlegend = False
+        
+        ax(fig)
 
         
 def scatterplot(
@@ -335,19 +291,12 @@ def scatterplot(
         alpha=alpha, x_jitter=x_jitter, y_jitter=y_jitter, legend=legend,
     )
 
-    p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
-    p.map_size(sizes=sizes, order=size_order, norm=size_norm)
-    p.map_style(markers=markers, order=style_order)
+    if ax is None:
+        _, ax = subplots()
 
     if not p.has_xy_data:
-        return ax
+        return ax._figure
 
-    # p._attach(ax)
-
-    # Other functions have color as an explicit param,
-    # and we should probably do that here too
-
-    return p.plot(ax, kwargs)
-
-    return ax
+    p.plot(ax, kwargs)
+    return ax._figure
 
