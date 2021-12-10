@@ -319,20 +319,6 @@ class LinePlotter(_sns.relational._LinePlotter):
 
             # --- Draw the main line(s)
 
-            if 'hue' in sub_vars:
-                sub_data['hue'] = sub_vars['hue']
-            plotting_kwargs = {
-                'data_frame': sub_data.rename(columns=self.variables),
-                'x': self.variables['x'],
-                'y': self.variables['y'],
-            }
-            if 'hue' in sub_vars:
-                plotting_kwargs['color'] = self.variables['hue']
-                line_color = _convert_color(self._hue_map(sub_vars['hue']), 1)
-                fill_color = _convert_color(self._hue_map(sub_vars['hue']), .2)
-            else:
-                line_color = _get_colors(1, 1)[0]
-                fill_color = _get_colors(1, .2)[0]
             plotting_kwargs['color_discrete_sequence'] = [line_color]
                 
             fig = px.line(**plotting_kwargs)
@@ -390,4 +376,225 @@ def lineplot(
         return ax._figure
 
     p.plot(ax, kwargs)
+    return ax._figure
+
+
+class DistributionPlotter(_sns.distributions._DistributionPlotter):
+    def plot_univariate_density(
+        self,
+        multiple,
+        common_norm,
+        common_grid,
+        warn_singular,
+        fill,
+        color,
+        legend,
+        estimate_kws,
+        ax,
+        **plot_kws,
+    ):
+
+        # Handle conditional defaults
+        if fill is None:
+            fill = multiple in ("stack", "fill")
+
+        # plot_kws = _normalize_kwargs(plot_kws, artist)
+
+        # Input checking
+        _sns.distributions._check_argument("multiple", ["layer", "stack", "fill"], multiple)
+
+        # Always share the evaluation grid when stacking
+        subsets = bool(set(self.variables) - {"x", "y"})
+        if subsets and multiple in ("stack", "fill"):
+            common_grid = True
+
+        # Check if the data axis is log scaled
+        log_scale = self._log_scaled(self.data_variable)
+
+        # Do the computation
+        densities = self._compute_univariate_density(
+            self.data_variable,
+            common_norm,
+            common_grid,
+            estimate_kws,
+            log_scale,
+            warn_singular,
+        )
+
+        # Adjust densities based on the `multiple` rule
+        densities, baselines = self._resolve_multiple(densities, multiple)
+
+        # Control the interaction with autoscaling by defining sticky_edges
+        # i.e. we don't want autoscale margins below the density curve
+        sticky_density = (0, 1) if multiple == "fill" else (0, np.inf)
+
+        if multiple == "fill":
+            # Filled plots should not have any margins
+            sticky_support = densities.index.min(), densities.index.max()
+        else:
+            sticky_support = []
+
+        if fill:
+            if multiple == "layer":
+                default_alpha = .25
+            else:
+                default_alpha = .75
+        else:
+            default_alpha = 1
+        alpha = plot_kws.pop("alpha", default_alpha)  # TODO make parameter?
+
+        # Now iterate through the subsets and draw the densities
+        # We go backwards so stacked densities read from top-to-bottom
+        for sub_vars, _ in self.iter_data("hue", reverse=True):
+
+            # Extract the support grid and density curve for this level
+            key = tuple(sub_vars.items())
+            try:
+                density = densities[key]
+            except KeyError:
+                continue
+            support = density.index
+            fill_from = baselines[key]
+
+            # ax = self._get_axes(sub_vars)
+
+            if "hue" in self.variables:
+                sub_color = self._hue_map(sub_vars["hue"])
+            else:
+                sub_color = color
+
+            # artist_kws = self._artist_kws(
+            #     plot_kws, fill, False, multiple, sub_color, alpha
+            # )
+
+            # Either plot a curve with observation values on the x axis
+            if "x" in self.variables:
+
+                if fill:
+                    raise NotImplementedError('fill isn\'t supported yet')
+
+                else:
+                    sub_data = density.to_frame(name='support').reset_index().rename(columns={'index': 'density'})
+                    if 'hue' in sub_vars:
+                        sub_data['hue'] = sub_vars['hue']
+                    plotting_kwargs = {
+                        'data_frame': sub_data,
+                        'x': 'density',
+                        'y': 'support',
+                    }
+                    if 'hue' in sub_vars:
+                        plotting_kwargs['color'] = 'hue'
+                        color = _convert_color(self._hue_map(sub_vars['hue']), 1)
+                    else:
+                        color = _get_colors(1, 1)[0]
+                    plotting_kwargs['color_discrete_sequence'] = [color]
+                    fig = px.line(**plotting_kwargs)
+                    ax(fig)
+                    ax.set_xlabel(self.variables['x'])
+                    ax.set_ylabel('Density')
+
+        # --- Finalize the plot ----
+
+
+
+def kdeplot(
+    x=None,  # Allow positional x, because behavior will not change with reorg
+    *,
+    gridsize=200,  # TODO maybe depend on uni/bivariate?
+    cut=3, clip=None, legend=True, cumulative=False,
+    cbar=False, cbar_ax=None, cbar_kws=None,
+    ax=None,
+
+    # New params
+    weights=None,  # TODO note that weights is grouped with semantics
+    hue=None, palette=None, hue_order=None, hue_norm=None,
+    multiple="layer", common_norm=True, common_grid=False,
+    levels=10, thresh=.05,
+    bw_method="scott", bw_adjust=1, log_scale=None,
+    color=None, fill=None,
+
+    # Renamed params
+    data=None, 
+
+    # New in v0.12
+    warn_singular=True,
+
+    **kwargs,
+):
+    # Handle `n_levels`
+    # This was never in the formal API but it was processed, and appeared in an
+    # example. We can treat as an alias for `levels` now and deprecate later.
+    levels = kwargs.pop("n_levels", levels)
+
+    # Handle "soft" deprecation of shade `shade` is not really the right
+    # terminology here, but unlike some of the other deprecated parameters it
+    # is probably very commonly used and much hard to remove. This is therefore
+    # going to be a longer process where, first, `fill` will be introduced and
+    # be used throughout the documentation. In 0.12, when kwarg-only
+    # enforcement hits, we can remove the shade/shade_lowest out of the
+    # function signature all together and pull them out of the kwargs. Then we
+    # can actually fire a FutureWarning, and eventually remove.
+
+    p = DistributionPlotter(
+        data=data,
+        variables=DistributionPlotter.get_semantics(locals()),
+    )
+
+    p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
+
+    if ax is None:
+        _, ax = subplots()
+
+    # p._attach(ax, allowed_types=["numeric", "datetime"], log_scale=log_scale)
+
+    # method = ax.fill_between if fill else ax.plot
+    # color = _sns.distributions._default_color(method, hue, color, kwargs)
+
+    if not p.has_xy_data:
+        return ax
+
+    # Pack the kwargs for statistics.KDE
+    estimate_kws = dict(
+        bw_method=bw_method,
+        bw_adjust=bw_adjust,
+        gridsize=gridsize,
+        cut=cut,
+        clip=clip,
+        cumulative=cumulative,
+    )
+
+    if p.univariate:
+
+        plot_kws = kwargs.copy()
+
+        p.plot_univariate_density(
+            multiple=multiple,
+            common_norm=common_norm,
+            common_grid=common_grid,
+            fill=fill,
+            color=color,
+            legend=legend,
+            warn_singular=warn_singular,
+            estimate_kws=estimate_kws,
+            ax=ax,
+            **plot_kws,
+        )
+
+    # else:
+
+    #     p.plot_bivariate_density(
+    #         common_norm=common_norm,
+    #         fill=fill,
+    #         levels=levels,
+    #         thresh=thresh,
+    #         legend=legend,
+    #         color=color,
+    #         warn_singular=warn_singular,
+    #         cbar=cbar,
+    #         cbar_ax=cbar_ax,
+    #         cbar_kws=cbar_kws,
+    #         estimate_kws=estimate_kws,
+    #         **kwargs,
+    #     )
+
     return ax._figure
