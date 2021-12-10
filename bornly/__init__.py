@@ -68,9 +68,18 @@ class Ax:
         for key, val in kwargs.items():
             getattr(self, f"set_{key}")(val)
 
-    def fill_between(self, x, y1, y2, alpha=None, color=None, legend=None):
+    def fill_between(self, x, y1, y2, alpha, color, legend=None, label=None):
         # need to figure this out if I want to make progress...
-        ...
+        self._figure.add_traces(go.Scatter(x=x, y = y2,
+                                line = dict(color='rgba(0,0,0,0)'), showlegend=False))
+
+        self._figure.add_traces(go.Scatter(x=x, y = y1,
+                                line = dict(color='rgba(0,0,0,0)'),
+                                fill='tonexty', 
+                                fillcolor=_convert_color(color, alpha),
+                                showlegend=legend,
+                                name=label,
+                                ))
 
 
 def _add_to_fig(subplot, figure, row, col):
@@ -106,14 +115,18 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
     return fig, np.asarray(ax)
 
 
-def get_colors(n, alpha, palette=None):
+def _convert_color(color, alpha):
+    return f'rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})'
+
+def _get_colors(n, alpha, palette=None):
     if palette is None:
-        palette = COLOR_PALETTE
+        palette = _sns.color_palette()
     if n == -1:
         colors = palette
     else:
         colors = palette[:n]
-    return [f"rgba({color[0]}, {color[1]}, {color[2]}, {alpha})" for color in colors]
+    return [_convert_color(color, alpha) for color in colors]
+
 
 
 def _plot_hue(df_, name, label, color, x, y):
@@ -166,7 +179,7 @@ def lineplot(data, x, y, hue=None, ax=None):
             x=x,
             y=y,
             color=hue,
-            color_discrete_sequence=get_colors(-1, 1),
+            color_discrete_sequence=_get_colors(-1, 1),
         )
     else:
         err = data.groupby(group)[y].std() / np.sqrt(n_)
@@ -216,30 +229,6 @@ def lineplot(data, x, y, hue=None, ax=None):
                 i.showlegend = False
         ax(figure)
 
-def scatterplot1(data, x, y, hue=None, ax=None):
-
-    if hue is None:
-        group = [x]
-    else:
-        group = [hue, x]
-
-    figure = px.scatter(
-        data.sort_values(group),
-        x=x,
-        y=y,
-        color=hue,
-        color_discrete_sequence=get_colors(-1, 1),
-    )
-
-    if ax is None:
-        return figure
-    else:
-        names_already_in_legend = {i.name for i in ax._figure.data if i.showlegend}
-        for i in figure.data:
-            if i.showlegend and i.name in names_already_in_legend:
-                i.showlegend = False
-        ax(figure)
-
 class ScatterPlotter(_sns.relational._ScatterPlotter):
 
     @property
@@ -261,9 +250,9 @@ class ScatterPlotter(_sns.relational._ScatterPlotter):
             'y': self.variables['y'],
         }
         if 'palette' in self.variables:
-            plotting_kwargs['color_discrete_sequence'] = get_colors(-1, 1, _sns.color_palette(self.variables['palette']))
+            plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1, _sns.color_palette(self.variables['palette']))
         else:
-            plotting_kwargs['color_discrete_sequence'] = get_colors(-1, 1)
+            plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1)
         if 'hue' in self.variables:
             plotting_kwargs['color'] = self.variables['hue']
         if 'size' in self.variables:
@@ -319,7 +308,7 @@ def scatterplot(
     p.plot(ax, kwargs)
     return ax._figure
 
-class LinePlotter(_sns.relational._LinePlotter)
+class LinePlotter(_sns.relational._LinePlotter):
     def plot(self, ax, kws):
         """Draw the plot onto an axes, passing matplotlib kwargs."""
 
