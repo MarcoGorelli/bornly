@@ -12,7 +12,7 @@ $ pip install -U bornly
 
 ## Examples
 
-### lineplot
+### Lineplot
 
 ```python
 import bornly as bns
@@ -21,9 +21,9 @@ fmri = bns.load_dataset("fmri")
 bns.lineplot(data=fmri, x="timepoint", y="signal", hue="event")
 ```
 
-![lineplot](lineplot.png)
+![lineplot](img/lineplot.png)
 
-### barplot
+### Barplot
 
 ```python
 import bornly as bns
@@ -32,7 +32,9 @@ tips = bns.load_dataset("tips")
 bns.barplot(x="day", y="total_bill", data=tips, hue="time")
 ```
 
-![barplot](barplot.png)
+![barplot](img/barplot.png)
+
+### Scatterplot
 
 ```python
 import bornly as bns
@@ -49,7 +51,9 @@ bns.scatterplot(
 )
 ```
 
-![scatterplot](scatterplot.png)
+![scatterplot](img/scatterplot.png)
+
+### Kdeplot
 
 ```python
 import bornly as bns
@@ -58,7 +62,7 @@ iris = bns.load_dataset("iris")
 bns.kdeplot(data=iris)
 ```
 
-![kdeplot](kdeplot.png)
+![kdeplot](img/kdeplot.png)
 
 ```python
 from string import ascii_letters
@@ -80,7 +84,9 @@ cmap = bns.diverging_palette(230, 20, as_cmap=True)
 bns.heatmap(corr, mask=mask, cmap=cmap, vmax=0.3, center=0)
 ```
 
-![heatmap](heatmap.png)
+![heatmap](img/heatmap.png)
+
+### Pairplot
 
 ```python
 import bornly as bns
@@ -89,4 +95,4 @@ penguins = bns.load_dataset("penguins")
 bns.pairplot(penguins, hue="species")
 ```
 
-![pairplot](pairplot.png)
+![pairplot](img/pairplot.png)
