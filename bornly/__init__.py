@@ -1,12 +1,9 @@
 import functools
-from matplotlib.pyplot import plot
 
 import numpy as np
-from numpy.core.fromnumeric import var
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import scipy.stats as stats
 from plotly.subplots import make_subplots
 import bornly._seaborn.seaborn as _sns
 from bornly._seaborn.seaborn import (
