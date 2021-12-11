@@ -1,4 +1,5 @@
 import functools
+from matplotlib.pyplot import plot
 
 import numpy as np
 from numpy.core.fromnumeric import var
@@ -11,6 +12,8 @@ import bornly._seaborn.seaborn as _sns
 from bornly._seaborn.seaborn import color_palette, diverging_palette, cubehelix_palette
 
 
+def _cartesian(x, y):
+    return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 class Ax:
     def __init__(self, func, *, nrows, ncols):
         self._func = func
@@ -661,32 +664,49 @@ def kdeplot(
 
     return ax._figure
 
+
 class HeatMapper(_sns.matrix._HeatMapper):
     def plot(self, ax, cax, kws):
         data_ = self.data.copy()
         data_[self.plot_data.mask] = np.nan
         plotting_kwargs = {
-            'img': data_,
-            'zmin': self.vmin,
-            'zmax': self.vmax,
+            "img": data_,
+            "zmin": self.vmin,
+            "zmax": self.vmax,
         }
         palette = self.cmap(np.linspace(0, 1, self.cmap.N))
 
-        plotting_kwargs['color_continuous_scale'] =_get_colors(-1, 1, palette)
+        plotting_kwargs["color_continuous_scale"] = _get_colors(-1, 1, palette)
         fig = px.imshow(**plotting_kwargs)
-        fig.update_layout(xaxis_showgrid=False, yaxis_showgrid=False, template='plotly_white') 
+        fig.update_layout(
+            xaxis_showgrid=False, yaxis_showgrid=False, template="plotly_white"
+        )
         ax(fig)
         ax._figure.update_layout(fig.layout)
-    
+
+
 def heatmap(
-    data, *,
-    vmin=None, vmax=None, cmap=None, center=None, robust=False,
-    annot=None, fmt=".2g", annot_kws=None,
-    linewidths=0, linecolor="white",
-    cbar=True, cbar_kws=None, cbar_ax=None,
-    square=False, xticklabels="auto", yticklabels="auto",
-    mask=None, ax=None,
-    **kwargs
+    data,
+    *,
+    vmin=None,
+    vmax=None,
+    cmap=None,
+    center=None,
+    robust=False,
+    annot=None,
+    fmt=".2g",
+    annot_kws=None,
+    linewidths=0,
+    linecolor="white",
+    cbar=True,
+    cbar_kws=None,
+    cbar_ax=None,
+    square=False,
+    xticklabels="auto",
+    yticklabels="auto",
+    mask=None,
+    ax=None,
+    **kwargs,
 ):
     """Plot rectangular data as a color-encoded matrix.
 
@@ -866,9 +886,22 @@ def heatmap(
         ...     ax = sns.heatmap(corr, mask=mask, vmax=.3, square=True)
     """
     # Initialize the plotter object
-    plotter = HeatMapper(data, vmin, vmax, cmap, center, robust, annot, fmt,
-                          annot_kws, cbar, cbar_kws, xticklabels,
-                          yticklabels, mask)
+    plotter = HeatMapper(
+        data,
+        vmin,
+        vmax,
+        cmap,
+        center,
+        robust,
+        annot,
+        fmt,
+        annot_kws,
+        cbar,
+        cbar_kws,
+        xticklabels,
+        yticklabels,
+        mask,
+    )
 
     # Add the pcolormesh kwargs here
     kwargs["linewidths"] = linewidths
@@ -880,4 +913,257 @@ def heatmap(
     # if square:
     #     ax.set_aspect("equal")
     plotter.plot(ax, cbar_ax, kwargs)
+    return ax._figure
+
+
+def pairplot(
+    data,
+    *,
+    hue=None,
+    hue_order=None,
+    palette=None,
+    vars=None,
+    x_vars=None,
+    y_vars=None,
+    kind="scatter",
+    diag_kind="auto",
+    markers=None,
+    width=800,
+    height=800,
+    aspect=1,
+    corner=False,
+    dropna=False,
+    plot_kws=None,
+    diag_kws=None,
+    grid_kws=None,
+):
+    """Plot pairwise relationships in a dataset.
+
+    By default, this function will create a grid of Axes such that each numeric
+    variable in ``data`` will by shared across the y-axes across a single row and
+    the x-axes across a single column. The diagonal plots are treated
+    differently: a univariate distribution plot is drawn to show the marginal
+    distribution of the data in each column.
+
+    It is also possible to show a subset of variables or plot different
+    variables on the rows and columns.
+
+    This is a high-level interface for :class:`PairGrid` that is intended to
+    make it easy to draw a few common styles. You should use :class:`PairGrid`
+    directly if you need more flexibility.
+
+    Parameters
+    ----------
+    data : `pandas.DataFrame`
+        Tidy (long-form) dataframe where each column is a variable and
+        each row is an observation.
+    hue : name of variable in ``data``
+        Variable in ``data`` to map plot aspects to different colors.
+    hue_order : list of strings
+        Order for the levels of the hue variable in the palette
+    palette : dict or seaborn color palette
+        Set of colors for mapping the ``hue`` variable. If a dict, keys
+        should be values  in the ``hue`` variable.
+    vars : list of variable names
+        Variables within ``data`` to use, otherwise use every column with
+        a numeric datatype.
+    {x, y}_vars : lists of variable names
+        Variables within ``data`` to use separately for the rows and
+        columns of the figure; i.e. to make a non-square plot.
+    kind : {'scatter', 'kde', 'hist', 'reg'}
+        Kind of plot to make.
+    diag_kind : {'auto', 'hist', 'kde', None}
+        Kind of plot for the diagonal subplots. If 'auto', choose based on
+        whether or not ``hue`` is used.
+    markers : single matplotlib marker code or list
+        Either the marker to use for all scatterplot points or a list of markers
+        with a length the same as the number of levels in the hue variable so that
+        differently colored points will also have different scatterplot
+        markers.
+    height : scalar
+        Height (in inches) of each facet.
+    aspect : scalar
+        Aspect * height gives the width (in inches) of each facet.
+    corner : bool
+        If True, don't add axes to the upper (off-diagonal) triangle of the
+        grid, making this a "corner" plot.
+    dropna : boolean
+        Drop missing values from the data before plotting.
+    {plot, diag, grid}_kws : dicts
+        Dictionaries of keyword arguments. ``plot_kws`` are passed to the
+        bivariate plotting function, ``diag_kws`` are passed to the univariate
+        plotting function, and ``grid_kws`` are passed to the :class:`PairGrid`
+        constructor.
+
+    Returns
+    -------
+    grid : :class:`PairGrid`
+        Returns the underlying :class:`PairGrid` instance for further tweaking.
+
+    See Also
+    --------
+    PairGrid : Subplot grid for more flexible plotting of pairwise relationships.
+    JointGrid : Grid for plotting joint and marginal distributions of two variables.
+
+    Examples
+    --------
+
+    .. include:: ../docstrings/pairplot.rst
+
+    """
+
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError(
+            "'data' must be pandas DataFrame object, not: {typefound}".format(
+                typefound=type(data)
+            )
+        )
+
+    plot_kws = {} if plot_kws is None else plot_kws.copy()
+    diag_kws = {} if diag_kws is None else diag_kws.copy()
+    grid_kws = {} if grid_kws is None else grid_kws.copy()
+
+    # Resolve "auto" diag kind
+    if diag_kind == "auto":
+        if hue is None:
+            diag_kind = "kde" if kind == "kde" else "hist"
+        else:
+            diag_kind = "hist" if kind == "hist" else "kde"
+
+    numeric_cols = data.select_dtypes("number").columns
+    if hue in numeric_cols:
+        numeric_cols.remove(hue)
+    if vars is not None:
+        x_vars = list(vars)
+        y_vars = list(vars)
+    if x_vars is None:
+        x_vars = numeric_cols
+    if y_vars is None:
+        y_vars = numeric_cols
+
+    if np.isscalar(x_vars):
+        x_vars = [x_vars]
+    if np.isscalar(y_vars):
+        y_vars = [y_vars]
+
+    x_vars = list(x_vars)
+    y_vars = list(y_vars)
+
+    if not x_vars:
+        raise ValueError("No variables found for grid columns.")
+    if not y_vars:
+        raise ValueError("No variables found for grid rows.")
+    if not x_vars == y_vars:
+        raise NotImplementedError("x_vars and y_vars need to be the same")
+
+    fig = px.scatter_matrix(
+        data,
+        dimensions=x_vars,
+        color=hue,
+        color_discrete_sequence=_get_colors(-1, 1, palette),
+        width=width or 800,
+        height=height or 800,
+    )
+    fig.update_traces(diagonal_visible=False)
+    return fig
+
+
+class BarPlotter(_sns.categorical._BarPlotter):
+    def plot(self, ax, bar_kws):
+        """Make the plot."""
+        self.draw_bars(ax, bar_kws)
+
+    def draw_bars(self, ax, kws):
+        """Draw the bars onto `ax`."""
+        # Get the right matplotlib function depending on the orientation
+
+        data = pd.DataFrame({self.y: self.statistic.flatten()})
+        plotting_kwargs = dict(
+            data_frame=data,
+            x=self.x,
+            y=self.y,
+            color_discrete_sequence=_get_colors(-1, 1, self.colors),
+        )
+        if self.plot_hues is None:
+            data[self.x] = self.group_names
+            data['err'] = self.confint[:, 1] - data[self.y]
+            plotting_kwargs['color'] = self.x
+        else:
+            data[[self.hue, self.x]] = _cartesian(self.hue_names, self.group_names)
+            data['err'] = self.confint[:, :, 1].flatten() - data[self.y]
+            plotting_kwargs['color'] = self.hue
+            plotting_kwargs['barmode'] = 'group'
+
+        plotting_kwargs['category_orders']={self.x: self.group_names}
+
+        if not np.isnan(data['err']).all():
+            plotting_kwargs["error_y"] = "err"
+
+        if self.orient == 'h':
+            plotting_kwargs['x'], plotting_kwargs['y'] = plotting_kwargs['y'], plotting_kwargs['x']
+            plotting_kwargs['orientation'] = 'h'
+            if 'error_y' in plotting_kwargs:
+                plotting_kwargs['error_x'] = plotting_kwargs.pop('error_y')
+            
+        fig = px.bar(**plotting_kwargs)
+        ax(fig)
+        ax._figure.update_layout(fig.layout)
+
+
+def barplot(
+    *,
+    x=None,
+    y=None,
+    hue=None,
+    data=None,
+    order=None,
+    hue_order=None,
+    estimator=np.mean,
+    ci=95,
+    n_boot=1000,
+    units=None,
+    seed=None,
+    orient=None,
+    color=None,
+    palette=None,
+    saturation=0.75,
+    errcolor=".26",
+    errwidth=None,
+    capsize=None,
+    dodge=True,
+    ax=None,
+    **kwargs,
+):
+
+    plotter = BarPlotter(
+        x,
+        y,
+        hue,
+        data,
+        order,
+        hue_order,
+        estimator,
+        ci,
+        n_boot,
+        units,
+        seed,
+        orient,
+        color,
+        palette,
+        saturation,
+        errcolor,
+        errwidth,
+        capsize,
+        dodge,
+    )
+    plotter.data = data
+    plotter.hue = hue
+    plotter.x = x
+    plotter.y = y
+    plotter.estimator = estimator
+
+    if ax is None:
+        _, ax = subplots()
+
+    plotter.plot(ax, kwargs)
     return ax._figure
