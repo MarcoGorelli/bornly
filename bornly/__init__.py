@@ -8,19 +8,7 @@ import plotly.graph_objects as go
 import scipy.stats as stats
 from plotly.subplots import make_subplots
 import bornly._seaborn.seaborn as _sns
-
-COLOR_PALETTE = [
-    (31.0, 119.0, 180.0),
-    (255.0, 127.0, 14.0),
-    (44.0, 160.0, 44.0),
-    (214.0, 39.0, 40.0),
-    (148.0, 103.0, 189.0),
-    (140.0, 86.0, 75.0),
-    (227.0, 119.0, 194.0),
-    (127.0, 127.0, 127.0),
-    (188.0, 189.0, 34.0),
-    (23.0, 190.0, 207.0),
-]
+from bornly._seaborn.seaborn import color_palette, diverging_palette, cubehelix_palette
 
 
 class Ax:
@@ -68,20 +56,27 @@ class Ax:
         for key, val in kwargs.items():
             getattr(self, f"set_{key}")(val)
 
-    def fill_between(self, x, y1, y2, alpha=None, color=None, rgba=None, legend=None, label=None):
+    def fill_between(
+        self, x, y1, y2, alpha=None, color=None, rgba=None, legend=None, label=None
+    ):
         # need to figure this out if I want to make progress...
         if rgba is None and color is not None and alpha is not None:
             rgba = _convert_color(color, alpha)
-        self._figure.add_traces(go.Scatter(x=x, y = y2,
-                                line = dict(color='rgba(0,0,0,0)'), showlegend=False))
+        self._figure.add_traces(
+            go.Scatter(x=x, y=y2, line=dict(color="rgba(0,0,0,0)"), showlegend=False)
+        )
 
-        self._figure.add_traces(go.Scatter(x=x, y = y1,
-                                line = dict(color='rgba(0,0,0,0)'),
-                                fill='tonexty', 
-                                fillcolor=rgba,
-                                showlegend=legend,
-                                name=label,
-                                ))
+        self._figure.add_traces(
+            go.Scatter(
+                x=x,
+                y=y1,
+                line=dict(color="rgba(0,0,0,0)"),
+                fill="tonexty",
+                fillcolor=rgba,
+                showlegend=legend,
+                name=label,
+            )
+        )
 
 
 def _add_to_fig(subplot, figure, row, col):
@@ -118,11 +113,15 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
 
 
 def _convert_color(color, alpha):
-    return f'rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})'
+    return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
+
+
 def _deconvert_rgba(rgba, alpha):
     import re
-    re.findall(r'\d+', rgba)
+
+    re.findall(r"\d+", rgba)
     breakpoint()
+
 
 def _get_colors(n, alpha, palette=None):
     if palette is None:
@@ -132,7 +131,6 @@ def _get_colors(n, alpha, palette=None):
     else:
         colors = palette[:n]
     return [_convert_color(color, alpha) for color in colors]
-
 
 
 def _plot_hue(df_, name, label, color, x, y):
@@ -171,13 +169,11 @@ def _plot_hue(df_, name, label, color, x, y):
     return fig
 
 
-
 class ScatterPlotter(_sns.relational._ScatterPlotter):
-
     @property
     def reverse_variables(self):
         return {v: k for k, v in self.variables.items()}
-    
+
     def plot(self, ax, kws):
 
         # --- Determine the visual attributes of the plot
@@ -188,59 +184,84 @@ class ScatterPlotter(_sns.relational._ScatterPlotter):
 
         # Draw the scatter plot
         plotting_kwargs = {
-            'data_frame': data,
-            'x': self.variables['x'],
-            'y': self.variables['y'],
+            "data_frame": data,
+            "x": self.variables["x"],
+            "y": self.variables["y"],
         }
-        if 'palette' in self.variables:
-            plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1, _sns.color_palette(self.variables['palette']))
+        if "palette" in self.variables:
+            plotting_kwargs["color_discrete_sequence"] = _get_colors(
+                -1, 1, _sns.color_palette(self.variables["palette"])
+            )
         else:
-            plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1)
-        if 'hue' in self.variables:
-            plotting_kwargs['color'] = self.variables['hue']
-        if 'size' in self.variables:
-            plotting_kwargs['size'] = self.variables['size']
-        if 'sizes' in self.variables:
-            plotting_kwargs['size_max'] = self.variables['sizes'][1]
-        
+            plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
+        if "hue" in self.variables:
+            plotting_kwargs["color"] = self.variables["hue"]
+        if "size" in self.variables:
+            plotting_kwargs["size"] = self.variables["size"]
+        if "sizes" in self.variables:
+            plotting_kwargs["size_max"] = self.variables["sizes"][1]
+
         fig = px.scatter(**plotting_kwargs)
-        ax.set_xlabel(self.variables['x'])
-        ax.set_ylabel(self.variables['y'])
+        ax.set_xlabel(self.variables["x"])
+        ax.set_ylabel(self.variables["y"])
 
         if not self.legend:
             for i in fig.data:
                 i.showlegend = False
-        
+
         ax(fig)
 
-        
+
 def scatterplot(
     *,
-    x=None, y=None,
-    hue=None, style=None, size=None, data=None,
-    palette=None, hue_order=None, hue_norm=None,
-    sizes=None, size_order=None, size_norm=None,
-    markers=True, style_order=None,
-    x_bins=None, y_bins=None,
-    units=None, estimator=None, ci=95, n_boot=1000,
-    alpha=None, x_jitter=None, y_jitter=None,
-    legend="auto", ax=None,
-    **kwargs
+    x=None,
+    y=None,
+    hue=None,
+    style=None,
+    size=None,
+    data=None,
+    palette=None,
+    hue_order=None,
+    hue_norm=None,
+    sizes=None,
+    size_order=None,
+    size_norm=None,
+    markers=True,
+    style_order=None,
+    x_bins=None,
+    y_bins=None,
+    units=None,
+    estimator=None,
+    ci=95,
+    n_boot=1000,
+    alpha=None,
+    x_jitter=None,
+    y_jitter=None,
+    legend="auto",
+    ax=None,
+    **kwargs,
 ):
 
     variables = ScatterPlotter.get_semantics(locals())
     p = ScatterPlotter(
-        data=data, variables=variables,
-        x_bins=x_bins, y_bins=y_bins,
-        estimator=estimator, ci=ci, n_boot=n_boot,
-        alpha=alpha, x_jitter=x_jitter, y_jitter=y_jitter, legend=legend,
+        data=data,
+        variables=variables,
+        x_bins=x_bins,
+        y_bins=y_bins,
+        estimator=estimator,
+        ci=ci,
+        n_boot=n_boot,
+        alpha=alpha,
+        x_jitter=x_jitter,
+        y_jitter=y_jitter,
+        legend=legend,
     )
     if palette is not None:
-        p.variables['palette'] = palette
+        p.variables["palette"] = palette
     if sizes is not None:
-        p.variables['sizes'] = sizes
+        p.variables["sizes"] = sizes
     if hue_order is not None:
-        raise NotImplementedError('hue_order isn\'t available yet')
+        raise NotImplementedError("hue_order isn't available yet")
 
     if ax is None:
         _, ax = subplots()
@@ -250,6 +271,7 @@ def scatterplot(
 
     p.plot(ax, kwargs)
     return ax._figure
+
 
 class LinePlotter(_sns.relational._LinePlotter):
     def plot(self, ax, kws):
@@ -264,13 +286,13 @@ class LinePlotter(_sns.relational._LinePlotter):
         # gotten from the corresponding matplotlib function, and calling the
         # function will advance the axes property cycle.
 
-        kws.setdefault("markeredgewidth", kws.pop("mew", .75))
+        kws.setdefault("markeredgewidth", kws.pop("mew", 0.75))
         kws.setdefault("markeredgecolor", kws.pop("mec", "w"))
 
         # Set default error kwargs
         err_kws = self.err_kws.copy()
         if self.err_style == "band":
-            err_kws.setdefault("alpha", .2)
+            err_kws.setdefault("alpha", 0.2)
         elif self.err_style == "bars":
             pass
         elif self.err_style is not None:
@@ -279,7 +301,10 @@ class LinePlotter(_sns.relational._LinePlotter):
 
         # Initialize the aggregation object
         agg = _sns._statistics.EstimateAggregator(
-            self.estimator, self.errorbar, n_boot=self.n_boot, seed=self.seed,
+            self.estimator,
+            self.errorbar,
+            n_boot=self.n_boot,
+            seed=self.seed,
         )
 
         # TODO abstract variable to aggregate over here-ish. Better name?
@@ -293,7 +318,7 @@ class LinePlotter(_sns.relational._LinePlotter):
         # If we want to use nas, we need to conditionalize dropna in iter_data.
 
         # Loop over the semantic subsets and add to the plot
-        grouping_vars = "hue"#, "size", "style"
+        grouping_vars = "hue"  # , "size", "style"
         for sub_vars, sub_data in self.iter_data(grouping_vars, from_comp_data=True):
 
             if self.sort:
@@ -319,53 +344,75 @@ class LinePlotter(_sns.relational._LinePlotter):
 
             # --- Draw the main line(s)
 
-            plotting_kwargs['color_discrete_sequence'] = [line_color]
-                
+            plotting_kwargs["color_discrete_sequence"] = [line_color]
+
             fig = px.line(**plotting_kwargs)
             ax(fig)
-            ax.set_xlabel(self.variables['x'])
-            ax.set_ylabel(self.variables['y'])
+            ax.set_xlabel(self.variables["x"])
+            ax.set_ylabel(self.variables["y"])
 
             # --- Draw the confidence intervals
 
             if self.estimator is not None and self.errorbar is not None:
 
-            #     # TODO handling of orientation will need to happen here
+                #     # TODO handling of orientation will need to happen here
 
                 ax.fill_between(
-                    sub_data["x"], sub_data["ymin"], sub_data["ymax"],
+                    sub_data["x"],
+                    sub_data["ymin"],
+                    sub_data["ymax"],
                     rgba=fill_color,
                     legend=False,
                 )
 
                 if self.err_style == "bars":
-                    raise NotImplementedError('Can\'t use bars are err_style')
+                    raise NotImplementedError("Can't use bars are err_style")
 
-        if 'hue' in sub_vars:
-            ax._figure.update_layout(legend_title=self.variables['hue'])
-
+        if "hue" in sub_vars:
+            ax._figure.update_layout(legend_title=self.variables["hue"])
 
 
 def lineplot(
     *,
-    x=None, y=None,
-    hue=None, size=None, style=None,
+    x=None,
+    y=None,
+    hue=None,
+    size=None,
+    style=None,
     data=None,
-    palette=None, hue_order=None, hue_norm=None,
-    sizes=None, size_order=None, size_norm=None,
-    dashes=True, markers=None, style_order=None,
-    units=None, estimator="mean", n_boot=1000, seed=None,
-    sort=True, err_style="band", err_kws=None,
+    palette=None,
+    hue_order=None,
+    hue_norm=None,
+    sizes=None,
+    size_order=None,
+    size_norm=None,
+    dashes=True,
+    markers=None,
+    style_order=None,
+    units=None,
+    estimator="mean",
+    n_boot=1000,
+    seed=None,
+    sort=True,
+    err_style="band",
+    err_kws=None,
     legend="auto",
     errorbar=("ci", 95),
-    ax=None, **kwargs
+    ax=None,
+    **kwargs,
 ):
 
     variables = LinePlotter.get_semantics(locals())
     p = LinePlotter(
-        data=data, variables=variables,
-        estimator=estimator, n_boot=n_boot, seed=seed,
-        sort=sort, err_style=err_style, err_kws=err_kws, legend=legend,
+        data=data,
+        variables=variables,
+        estimator=estimator,
+        n_boot=n_boot,
+        seed=seed,
+        sort=sort,
+        err_style=err_style,
+        err_kws=err_kws,
+        legend=legend,
         errorbar=errorbar,
     )
 
@@ -401,7 +448,9 @@ class DistributionPlotter(_sns.distributions._DistributionPlotter):
         # plot_kws = _normalize_kwargs(plot_kws, artist)
 
         # Input checking
-        _sns.distributions._check_argument("multiple", ["layer", "stack", "fill"], multiple)
+        _sns.distributions._check_argument(
+            "multiple", ["layer", "stack", "fill"], multiple
+        )
 
         # Always share the evaluation grid when stacking
         subsets = bool(set(self.variables) - {"x", "y"})
@@ -436,9 +485,9 @@ class DistributionPlotter(_sns.distributions._DistributionPlotter):
 
         if fill:
             if multiple == "layer":
-                default_alpha = .25
+                default_alpha = 0.25
             else:
-                default_alpha = .75
+                default_alpha = 0.75
         else:
             default_alpha = 1
         alpha = plot_kws.pop("alpha", default_alpha)  # TODO make parameter?
@@ -471,54 +520,67 @@ class DistributionPlotter(_sns.distributions._DistributionPlotter):
             if "x" in self.variables:
 
                 if fill:
-                    raise NotImplementedError('fill isn\'t supported yet')
+                    raise NotImplementedError("fill isn't supported yet")
 
                 else:
-                    sub_data = density.to_frame(name='support').reset_index().rename(columns={'index': 'density'})
-                    if 'hue' in sub_vars:
-                        sub_data['hue'] = sub_vars['hue']
+                    sub_data = (
+                        density.to_frame(name="support")
+                        .reset_index()
+                        .rename(columns={"index": "density"})
+                    )
+                    if "hue" in sub_vars:
+                        sub_data["hue"] = sub_vars["hue"]
                     plotting_kwargs = {
-                        'data_frame': sub_data,
-                        'x': 'density',
-                        'y': 'support',
+                        "data_frame": sub_data,
+                        "x": "density",
+                        "y": "support",
                     }
-                    if 'hue' in sub_vars:
-                        plotting_kwargs['color'] = 'hue'
-                        color = _convert_color(self._hue_map(sub_vars['hue']), 1)
+                    if "hue" in sub_vars:
+                        plotting_kwargs["color"] = "hue"
+                        color = _convert_color(self._hue_map(sub_vars["hue"]), 1)
                     else:
                         color = _get_colors(1, 1)[0]
-                    plotting_kwargs['color_discrete_sequence'] = [color]
+                    plotting_kwargs["color_discrete_sequence"] = [color]
                     fig = px.line(**plotting_kwargs)
                     ax(fig)
-                    ax.set_xlabel(self.variables['x'])
-                    ax.set_ylabel('Density')
+                    ax.set_xlabel(self.variables["x"])
+                    ax.set_ylabel("Density")
 
         # --- Finalize the plot ----
-
 
 
 def kdeplot(
     x=None,  # Allow positional x, because behavior will not change with reorg
     *,
     gridsize=200,  # TODO maybe depend on uni/bivariate?
-    cut=3, clip=None, legend=True, cumulative=False,
-    cbar=False, cbar_ax=None, cbar_kws=None,
+    cut=3,
+    clip=None,
+    legend=True,
+    cumulative=False,
+    cbar=False,
+    cbar_ax=None,
+    cbar_kws=None,
     ax=None,
-
     # New params
     weights=None,  # TODO note that weights is grouped with semantics
-    hue=None, palette=None, hue_order=None, hue_norm=None,
-    multiple="layer", common_norm=True, common_grid=False,
-    levels=10, thresh=.05,
-    bw_method="scott", bw_adjust=1, log_scale=None,
-    color=None, fill=None,
-
+    hue=None,
+    palette=None,
+    hue_order=None,
+    hue_norm=None,
+    multiple="layer",
+    common_norm=True,
+    common_grid=False,
+    levels=10,
+    thresh=0.05,
+    bw_method="scott",
+    bw_adjust=1,
+    log_scale=None,
+    color=None,
+    fill=None,
     # Renamed params
-    data=None, 
-
+    data=None,
     # New in v0.12
     warn_singular=True,
-
     **kwargs,
 ):
     # Handle `n_levels`
@@ -597,4 +659,225 @@ def kdeplot(
     #         **kwargs,
     #     )
 
+    return ax._figure
+
+class HeatMapper(_sns.matrix._HeatMapper):
+    def plot(self, ax, cax, kws):
+        data_ = self.data.copy()
+        data_[self.plot_data.mask] = np.nan
+        plotting_kwargs = {
+            'img': data_,
+            'zmin': self.vmin,
+            'zmax': self.vmax,
+        }
+        palette = self.cmap(np.linspace(0, 1, self.cmap.N))
+
+        plotting_kwargs['color_continuous_scale'] =_get_colors(-1, 1, palette)
+        fig = px.imshow(**plotting_kwargs)
+        fig.update_layout(xaxis_showgrid=False, yaxis_showgrid=False, template='plotly_white') 
+        ax(fig)
+        ax._figure.update_layout(fig.layout)
+    
+def heatmap(
+    data, *,
+    vmin=None, vmax=None, cmap=None, center=None, robust=False,
+    annot=None, fmt=".2g", annot_kws=None,
+    linewidths=0, linecolor="white",
+    cbar=True, cbar_kws=None, cbar_ax=None,
+    square=False, xticklabels="auto", yticklabels="auto",
+    mask=None, ax=None,
+    **kwargs
+):
+    """Plot rectangular data as a color-encoded matrix.
+
+    This is an Axes-level function and will draw the heatmap into the
+    currently-active Axes if none is provided to the ``ax`` argument.  Part of
+    this Axes space will be taken and used to plot a colormap, unless ``cbar``
+    is False or a separate Axes is provided to ``cbar_ax``.
+
+    Parameters
+    ----------
+    data : rectangular dataset
+        2D dataset that can be coerced into an ndarray. If a Pandas DataFrame
+        is provided, the index/column information will be used to label the
+        columns and rows.
+    vmin, vmax : floats, optional
+        Values to anchor the colormap, otherwise they are inferred from the
+        data and other keyword arguments.
+    cmap : matplotlib colormap name or object, or list of colors, optional
+        The mapping from data values to color space. If not provided, the
+        default will depend on whether ``center`` is set.
+    center : float, optional
+        The value at which to center the colormap when plotting divergant data.
+        Using this parameter will change the default ``cmap`` if none is
+        specified.
+    robust : bool, optional
+        If True and ``vmin`` or ``vmax`` are absent, the colormap range is
+        computed with robust quantiles instead of the extreme values.
+    annot : bool or rectangular dataset, optional
+        If True, write the data value in each cell. If an array-like with the
+        same shape as ``data``, then use this to annotate the heatmap instead
+        of the data. Note that DataFrames will match on position, not index.
+    fmt : str, optional
+        String formatting code to use when adding annotations.
+    annot_kws : dict of key, value mappings, optional
+        Keyword arguments for :meth:`matplotlib.axes.Axes.text` when ``annot``
+        is True.
+    linewidths : float, optional
+        Width of the lines that will divide each cell.
+    linecolor : color, optional
+        Color of the lines that will divide each cell.
+    cbar : bool, optional
+        Whether to draw a colorbar.
+    cbar_kws : dict of key, value mappings, optional
+        Keyword arguments for :meth:`matplotlib.figure.Figure.colorbar`.
+    cbar_ax : matplotlib Axes, optional
+        Axes in which to draw the colorbar, otherwise take space from the
+        main Axes.
+    square : bool, optional
+        If True, set the Axes aspect to "equal" so each cell will be
+        square-shaped.
+    xticklabels, yticklabels : "auto", bool, list-like, or int, optional
+        If True, plot the column names of the dataframe. If False, don't plot
+        the column names. If list-like, plot these alternate labels as the
+        xticklabels. If an integer, use the column names but plot only every
+        n label. If "auto", try to densely plot non-overlapping labels.
+    mask : bool array or DataFrame, optional
+        If passed, data will not be shown in cells where ``mask`` is True.
+        Cells with missing values are automatically masked.
+    ax : matplotlib Axes, optional
+        Axes in which to draw the plot, otherwise use the currently-active
+        Axes.
+    kwargs : other keyword arguments
+        All other keyword arguments are passed to
+        :meth:`matplotlib.axes.Axes.pcolormesh`.
+
+    Returns
+    -------
+    ax : matplotlib Axes
+        Axes object with the heatmap.
+
+    See Also
+    --------
+    clustermap : Plot a matrix using hierarchical clustering to arrange the
+                 rows and columns.
+
+    Examples
+    --------
+
+    Plot a heatmap for a numpy array:
+
+    .. plot::
+        :context: close-figs
+
+        >>> import numpy as np; np.random.seed(0)
+        >>> import seaborn as sns; sns.set_theme()
+        >>> uniform_data = np.random.rand(10, 12)
+        >>> ax = sns.heatmap(uniform_data)
+
+    Change the limits of the colormap:
+
+    .. plot::
+        :context: close-figs
+
+        >>> ax = sns.heatmap(uniform_data, vmin=0, vmax=1)
+
+    Plot a heatmap for data centered on 0 with a diverging colormap:
+
+    .. plot::
+        :context: close-figs
+
+        >>> normal_data = np.random.randn(10, 12)
+        >>> ax = sns.heatmap(normal_data, center=0)
+
+    Plot a dataframe with meaningful row and column labels:
+
+    .. plot::
+        :context: close-figs
+
+        >>> flights = sns.load_dataset("flights")
+        >>> flights = flights.pivot("month", "year", "passengers")
+        >>> ax = sns.heatmap(flights)
+
+    Annotate each cell with the numeric value using integer formatting:
+
+    .. plot::
+        :context: close-figs
+
+        >>> ax = sns.heatmap(flights, annot=True, fmt="d")
+
+    Add lines between each cell:
+
+    .. plot::
+        :context: close-figs
+
+        >>> ax = sns.heatmap(flights, linewidths=.5)
+
+    Use a different colormap:
+
+    .. plot::
+        :context: close-figs
+
+        >>> ax = sns.heatmap(flights, cmap="YlGnBu")
+
+    Center the colormap at a specific value:
+
+    .. plot::
+        :context: close-figs
+
+        >>> ax = sns.heatmap(flights, center=flights.loc["Jan", 1955])
+
+    Plot every other column label and don't plot row labels:
+
+    .. plot::
+        :context: close-figs
+
+        >>> data = np.random.randn(50, 20)
+        >>> ax = sns.heatmap(data, xticklabels=2, yticklabels=False)
+
+    Don't draw a colorbar:
+
+    .. plot::
+        :context: close-figs
+
+        >>> ax = sns.heatmap(flights, cbar=False)
+
+    Use different axes for the colorbar:
+
+    .. plot::
+        :context: close-figs
+
+        >>> grid_kws = {"height_ratios": (.9, .05), "hspace": .3}
+        >>> f, (ax, cbar_ax) = plt.subplots(2, gridspec_kw=grid_kws)
+        >>> ax = sns.heatmap(flights, ax=ax,
+        ...                  cbar_ax=cbar_ax,
+        ...                  cbar_kws={"orientation": "horizontal"})
+
+    Use a mask to plot only part of a matrix
+
+    .. plot::
+        :context: close-figs
+
+        >>> corr = np.corrcoef(np.random.randn(10, 200))
+        >>> mask = np.zeros_like(corr)
+        >>> mask[np.triu_indices_from(mask)] = True
+        >>> with sns.axes_style("white"):
+        ...     f, ax = plt.subplots(figsize=(7, 5))
+        ...     ax = sns.heatmap(corr, mask=mask, vmax=.3, square=True)
+    """
+    # Initialize the plotter object
+    plotter = HeatMapper(data, vmin, vmax, cmap, center, robust, annot, fmt,
+                          annot_kws, cbar, cbar_kws, xticklabels,
+                          yticklabels, mask)
+
+    # Add the pcolormesh kwargs here
+    kwargs["linewidths"] = linewidths
+    kwargs["edgecolor"] = linecolor
+
+    # Draw the plot and return the Axes
+    if ax is None:
+        _, ax = subplots()
+    # if square:
+    #     ax.set_aspect("equal")
+    plotter.plot(ax, cbar_ax, kwargs)
     return ax._figure
