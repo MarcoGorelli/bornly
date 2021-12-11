@@ -9,11 +9,18 @@ import plotly.graph_objects as go
 import scipy.stats as stats
 from plotly.subplots import make_subplots
 import bornly._seaborn.seaborn as _sns
-from bornly._seaborn.seaborn import color_palette, diverging_palette, cubehelix_palette, load_dataset
+from bornly._seaborn.seaborn import (
+    color_palette,
+    diverging_palette,
+    cubehelix_palette,
+    load_dataset,
+)
 
 
 def _cartesian(x, y):
     return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
+
+
 class Ax:
     def __init__(self, func, *, nrows, ncols):
         self._func = func
@@ -346,20 +353,20 @@ class LinePlotter(_sns.relational._LinePlotter):
                         sub_data[col] = np.power(10, sub_data[col])
 
             # --- Draw the main line(s)
-            if 'hue' in sub_vars:
-                sub_data['hue'] = sub_vars['hue']
+            if "hue" in sub_vars:
+                sub_data["hue"] = sub_vars["hue"]
             plotting_kwargs = {
-                'data_frame': sub_data.rename(columns=self.variables),
-                'x': self.variables['x'],
-                'y': self.variables['y'],
+                "data_frame": sub_data.rename(columns=self.variables),
+                "x": self.variables["x"],
+                "y": self.variables["y"],
             }
-            if 'hue' in sub_vars:
-                plotting_kwargs['color'] = self.variables['hue']
-                line_color = _convert_color(self._hue_map(sub_vars['hue']), 1)
-                fill_color = _convert_color(self._hue_map(sub_vars['hue']), .2)
+            if "hue" in sub_vars:
+                plotting_kwargs["color"] = self.variables["hue"]
+                line_color = _convert_color(self._hue_map(sub_vars["hue"]), 1)
+                fill_color = _convert_color(self._hue_map(sub_vars["hue"]), 0.2)
             else:
                 line_color = _get_colors(1, 1)[0]
-                fill_color = _get_colors(1, .2)[0]
+                fill_color = _get_colors(1, 0.2)[0]
             plotting_kwargs["color_discrete_sequence"] = [line_color]
 
             fig = px.line(**plotting_kwargs)
@@ -661,7 +668,7 @@ def kdeplot(
 
     else:
 
-        raise NotImplementedError('bivariate kde coming soon!')
+        raise NotImplementedError("bivariate kde coming soon!")
     #     p.plot_bivariate_density(
     #         common_norm=common_norm,
     #         fill=fill,
@@ -1101,25 +1108,28 @@ class BarPlotter(_sns.categorical._BarPlotter):
         )
         if self.plot_hues is None:
             data[self.x] = self.group_names
-            data['err'] = self.confint[:, 1] - data[self.y]
-            plotting_kwargs['color'] = self.x
+            data["err"] = self.confint[:, 1] - data[self.y]
+            plotting_kwargs["color"] = self.x
         else:
             data[[self.hue, self.x]] = _cartesian(self.hue_names, self.group_names)
-            data['err'] = self.confint[:, :, 1].flatten() - data[self.y]
-            plotting_kwargs['color'] = self.hue
-            plotting_kwargs['barmode'] = 'group'
+            data["err"] = self.confint[:, :, 1].flatten() - data[self.y]
+            plotting_kwargs["color"] = self.hue
+            plotting_kwargs["barmode"] = "group"
 
-        plotting_kwargs['category_orders']={self.x: self.group_names}
+        plotting_kwargs["category_orders"] = {self.x: self.group_names}
 
-        if not np.isnan(data['err']).all():
+        if not np.isnan(data["err"]).all():
             plotting_kwargs["error_y"] = "err"
 
-        if self.orient == 'h':
-            plotting_kwargs['x'], plotting_kwargs['y'] = plotting_kwargs['y'], plotting_kwargs['x']
-            plotting_kwargs['orientation'] = 'h'
-            if 'error_y' in plotting_kwargs:
-                plotting_kwargs['error_x'] = plotting_kwargs.pop('error_y')
-            
+        if self.orient == "h":
+            plotting_kwargs["x"], plotting_kwargs["y"] = (
+                plotting_kwargs["y"],
+                plotting_kwargs["x"],
+            )
+            plotting_kwargs["orientation"] = "h"
+            if "error_y" in plotting_kwargs:
+                plotting_kwargs["error_x"] = plotting_kwargs.pop("error_y")
+
         fig = px.bar(**plotting_kwargs)
         ax(fig)
         ax._figure.update_layout(fig.layout)
