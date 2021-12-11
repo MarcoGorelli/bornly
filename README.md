@@ -1,4 +1,6 @@
-# Bornly
+<h1 align="center">
+Bornly
+</h1>
 
 <p align="center">
 <img width="458" alt="Screenshot 2021-12-11 at 19 42 47" src="https://user-images.githubusercontent.com/33491632/145689600-9c31dd60-d0c6-430c-b350-7d24d7eef7fc.png">
