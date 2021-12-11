@@ -10,7 +10,9 @@ Note: the `$` is not part of the command:
 $ pip install -U bornly
 ```
 
-## Demo
+## Examples
+
+### lineplot
 
 ```python
 import bornly as bns
@@ -20,6 +22,8 @@ bns.lineplot(data=fmri, x="timepoint", y="signal", hue="event")
 ```
 
 ![lineplot](lineplot.png)
+
+### barplot
 
 ```python
 import bornly as bns
