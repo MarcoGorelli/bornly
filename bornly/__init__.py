@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import scipy.stats as stats
 from plotly.subplots import make_subplots
 import bornly._seaborn.seaborn as _sns
-from bornly._seaborn.seaborn import color_palette, diverging_palette, cubehelix_palette
+from bornly._seaborn.seaborn import color_palette, diverging_palette, cubehelix_palette, load_dataset
 
 
 def _cartesian(x, y):
@@ -346,7 +346,20 @@ class LinePlotter(_sns.relational._LinePlotter):
                         sub_data[col] = np.power(10, sub_data[col])
 
             # --- Draw the main line(s)
-
+            if 'hue' in sub_vars:
+                sub_data['hue'] = sub_vars['hue']
+            plotting_kwargs = {
+                'data_frame': sub_data.rename(columns=self.variables),
+                'x': self.variables['x'],
+                'y': self.variables['y'],
+            }
+            if 'hue' in sub_vars:
+                plotting_kwargs['color'] = self.variables['hue']
+                line_color = _convert_color(self._hue_map(sub_vars['hue']), 1)
+                fill_color = _convert_color(self._hue_map(sub_vars['hue']), .2)
+            else:
+                line_color = _get_colors(1, 1)[0]
+                fill_color = _get_colors(1, .2)[0]
             plotting_kwargs["color_discrete_sequence"] = [line_color]
 
             fig = px.line(**plotting_kwargs)
@@ -555,6 +568,7 @@ class DistributionPlotter(_sns.distributions._DistributionPlotter):
 def kdeplot(
     x=None,  # Allow positional x, because behavior will not change with reorg
     *,
+    y=None,
     gridsize=200,  # TODO maybe depend on uni/bivariate?
     cut=3,
     clip=None,
@@ -645,8 +659,9 @@ def kdeplot(
             **plot_kws,
         )
 
-    # else:
+    else:
 
+        raise NotImplementedError('bivariate kde coming soon!')
     #     p.plot_bivariate_density(
     #         common_norm=common_norm,
     #         fill=fill,

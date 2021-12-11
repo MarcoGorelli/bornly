@@ -1,8 +1,6 @@
 # Bornly
 
-Seaborn-like API, but with plotly under the hood.
-
-Very much work in progress!
+Seaborn-like API for plotly.
 
 ## Installation
 
@@ -15,12 +13,10 @@ $ pip install -U bornly
 ## Demo
 
 ```python
-import bornly as bs
-import seaborn as sns
+import bornly as bns
 
-fmri = sns.load_dataset("fmri")
-sns.lineplot(data=fmri, x="timepoint", y="signal", hue="event")
-bs.lineplot(data=fmri, x='timepoint', y='signal', hue='event')
+fmri = bns.load_dataset("fmri")
+bns.lineplot(data=fmri, x='timepoint', y='signal', hue='event')
 ```
 
 ![](demo.png)
