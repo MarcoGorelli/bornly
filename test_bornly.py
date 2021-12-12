@@ -3,6 +3,8 @@ import seaborn as sns
 
 fig, ax = bns.subplots()
 
+import seaborn as sns; sns.set_theme(color_codes=True)
+
 tips = sns.load_dataset("tips")
 
-bns.barplot(x="day", y="total_bill", data=tips, hue='time')
+ax = bns.regplot(x="total_bill", y="tip", data=tips)

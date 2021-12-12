@@ -1,4 +1,6 @@
 import functools
+import copy
+import matplotlib as mpl
 
 import numpy as np
 import pandas as pd
@@ -1128,6 +1130,8 @@ class BarPlotter(_sns.categorical._BarPlotter):
                 plotting_kwargs["error_x"] = plotting_kwargs.pop("error_y")
 
         fig = px.bar(**plotting_kwargs)
+        if self.orient == 'h':
+            fig.layout.xaxis.title.text, fig.layout.yaxis.title.text = fig.layout.yaxis.title.text, fig.layout.xaxis.title.text
         ax(fig)
         ax._figure.update_layout(fig.layout)
 
@@ -1189,3 +1193,128 @@ def barplot(
 
     plotter.plot(ax, kwargs)
     return ax._figure
+
+class RegressionPlotter(_sns.regression._RegressionPlotter):
+    def plot(self, ax, scatter_kws, line_kws):
+        """Draw the full plot."""
+        # Insert the plot label into the correct set of keyword arguments
+        if self.scatter:
+            scatter_kws["label"] = self.label
+        else:
+            line_kws["label"] = self.label
+
+        # Use the current color cycle state as a default
+        if self.color is None:
+            color = _sns.color_palette()[0]
+            # lines, = ax.plot([], [])
+            # color = lines.get_color()
+            # lines.remove()
+        else:
+            color = self.color
+
+        # Ensure that color is hex to avoid matplotlib weirdness
+        color = mpl.colors.rgb2hex(mpl.colors.colorConverter.to_rgb(color))
+
+        # Let color in keyword arguments override overall plot color
+        scatter_kws.setdefault("color", color)
+        line_kws.setdefault("color", color)
+
+        # Draw the constituent plots
+        if self.scatter:
+            self.scatterplot(ax, scatter_kws)
+
+        if self.fit_reg:
+            self.lineplot(ax, line_kws)
+
+        # Label the axes
+        if hasattr(self.x, "name"):
+            ax.set_xlabel(self.x.name)
+        if hasattr(self.y, "name"):
+            ax.set_ylabel(self.y.name)
+
+    def scatterplot(self, ax, kws):
+        """Draw the data."""
+        # Treat the line-based markers specially, explicitly setting larger
+        # linewidth than is provided by the seaborn style defaults.
+        # This would ideally be handled better in matplotlib (i.e., distinguish
+        # between edgewidth for solid glyphs and linewidth for line glyphs
+        # but this should do for now.
+        line_markers = ["1", "2", "3", "4", "+", "x", "|", "_"]
+        if self.x_estimator is None:
+            if "marker" in kws and kws["marker"] in line_markers:
+                lw = mpl.rcParams["lines.linewidth"]
+            else:
+                lw = mpl.rcParams["lines.markeredgewidth"]
+            kws.setdefault("linewidths", lw)
+
+            if not hasattr(kws['color'], 'shape') or kws['color'].shape[1] < 4:
+                kws.setdefault("alpha", .8)
+
+            x, y = self.scatter_data
+            data = pd.DataFrame({'x': x, 'y': y})
+            fig = px.scatter(data, x='x', y='y', color_discrete_sequence=[_convert_color(mpl.colors.to_rgb(kws['color']), kws['alpha'])])
+            ax(fig)
+            # ax.scatter(x, y, **kws)
+        else:
+            # TODO abstraction
+            ci_kws = {"color": kws["color"]}
+            ci_kws["linewidth"] = mpl.rcParams["lines.linewidth"] * 1.75
+            kws.setdefault("s", 50)
+
+            breakpoint()
+            xs, ys, cis = self.estimate_data
+            if [ci for ci in cis if ci is not None]:
+                for x, ci in zip(xs, cis):
+                    ax.plot([x, x], ci, **ci_kws)
+            ax.scatter(xs, ys, **kws)
+
+    def lineplot(self, ax, kws):
+        """Draw the model."""
+        # Fit the regression model
+        grid, yhat, err_bands = self.fit_regression(ax)
+        edges = grid[0], grid[-1]
+
+        # Get set default aesthetics
+        fill_color = kws["color"]
+        lw = kws.pop("lw", mpl.rcParams["lines.linewidth"] * 1.5)
+        kws.setdefault("linewidth", lw)
+
+        # Draw the regression line and confidence interval
+        data = pd.DataFrame({'x': grid, 'y': yhat})
+        fig = px.line(data, x='x', y='y', color_discrete_sequence=[_convert_color(mpl.colors.to_rgb(kws['color']), 1)])
+        ax(fig)
+
+        # line, = ax.plot(grid, yhat, **kws)
+        # if not self.truncate:
+        #     line.sticky_edges.x[:] = edges  # Prevent mpl from adding margin
+        if err_bands is not None:
+            ax.fill_between(grid, *err_bands, rgba=_convert_color(mpl.colors.to_rgb(fill_color), .15), legend=False)
+
+def regplot(
+    *,
+    x=None, y=None,
+    data=None,
+    x_estimator=None, x_bins=None, x_ci="ci",
+    scatter=True, fit_reg=True, ci=95, n_boot=1000, units=None,
+    seed=None, order=1, logistic=False, lowess=False, robust=False,
+    logx=False, x_partial=None, y_partial=None,
+    truncate=True, dropna=True, x_jitter=None, y_jitter=None,
+    label=None, color=None, marker="o",
+    scatter_kws=None, line_kws=None, ax=None
+):
+
+    plotter = RegressionPlotter(x, y, data, x_estimator, x_bins, x_ci,
+                                 scatter, fit_reg, ci, n_boot, units, seed,
+                                 order, logistic, lowess, robust, logx,
+                                 x_partial, y_partial, truncate, dropna,
+                                 x_jitter, y_jitter, color, label)
+
+    if ax is None:
+        _, ax = subplots()
+
+    scatter_kws = {} if scatter_kws is None else copy.copy(scatter_kws)
+    scatter_kws["marker"] = marker
+    line_kws = {} if line_kws is None else copy.copy(line_kws)
+    plotter.plot(ax, scatter_kws, line_kws)
+    return ax
+

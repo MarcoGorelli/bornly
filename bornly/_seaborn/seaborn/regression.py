@@ -189,7 +189,6 @@ class _RegressionPlotter(_LinearPlotter):
     def fit_regression(self, ax=None, x_range=None, grid=None):
         """Fit the regression model."""
         # Create the grid for the regression
-        print('foo')
         if grid is None:
             if self.truncate:
                 x_min, x_max = self.x_range
@@ -202,7 +201,6 @@ class _RegressionPlotter(_LinearPlotter):
         ci = self.ci
 
         # Fit the regression
-        print('order', self.order)
         if self.order > 1:
             yhat, yhat_boots = self.fit_poly(grid, self.order)
         elif self.logistic:
@@ -219,7 +217,6 @@ class _RegressionPlotter(_LinearPlotter):
         elif self.logx:
             yhat, yhat_boots = self.fit_logx(grid)
         else:
-            breakpoint()
             yhat, yhat_boots = self.fit_fast(grid)
 
         # Compute the confidence interval at each grid point
