@@ -1365,18 +1365,12 @@ def histplot(
 
     p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
 
-    if ax is None:
-        _, ax = subplots()
+    if ax is not None:
+        raise NotImplementedError('passing `ax` is not supported')
 
     if stat != 'count':
         raise NotImplementedError('only count stat is currently supported')
 
-    if p.univariate:  # Note, bivariate plots won't cycle
-        if fill:
-            method = ax.bar if element == "bars" else ax.fill_between
-        else:
-            method = ax.plot
-        # color = _sns.distributions._default_color(method, hue, color, kwargs)
 
     if not p.has_xy_data:
         return ax
@@ -1385,14 +1379,6 @@ def histplot(
     if discrete is None:
         discrete = p._default_discrete()
 
-    estimate_kws = dict(
-        stat=stat,
-        bins=bins,
-        binwidth=binwidth,
-        binrange=binrange,
-        discrete=discrete,
-        cumulative=cumulative,
-    )
 
     if p.univariate:
         plotting_kwargs = dict(
@@ -1403,27 +1389,11 @@ def histplot(
             plotting_kwargs['nbins'] = bins
         if hue is not None:
             plotting_kwargs['color'] = hue
-        plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1)
+        plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, .5)
+        if kde:
+            plotting_kwargs['marginal'] = 'violin'
         fig = px.histogram(**plotting_kwargs)
-        import numpy as np
-        import plotly.figure_factory as ff
-        alldata = []
-        allnames = []
-        binsizes = []
-        for d_ in fig.data:
-            data = d_['x']
-            data = data[~np.isnan(data)]
-            alldata.append(data)
-            allnames.append(d_.name)
-            binsizes.append(np.diff(np.histogram_bin_edges(data))[0])
-        finalfig = ff.create_distplot(alldata, allnames, colors=_get_colors(len(alldata), None), show_rug=False, show_curve=kde, bin_size=binsizes)
-        finalfig.update_xaxes( title_text=p.variables['x'],)
-        finalfig.update_yaxes( title_text='count')
-        if 'hue' in p.variables:
-            finalfig.update_layout(legend_title=p.variables['hue'])
-        return finalfig
+        return fig
 
     else:
         raise NotImplementedError('bivariate histogram not yet supported')
-
-    return ax

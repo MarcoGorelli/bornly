@@ -104,3 +104,14 @@ bns.pairplot(penguins, hue="species")
 ```
 
 ![pairplot](img/pairplot.png)
+
+### Histplot
+
+```python
+import bornly as bns
+
+penguins = bns.load_dataset("penguins")
+bns.histplot(data=penguins, x="flipper_length_mm", hue="species", kde=True)
+```
+
+![histplot](img/histplot.png)
