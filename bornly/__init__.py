@@ -392,7 +392,9 @@ class LinePlotter(_sns.relational._LinePlotter):
             plotting_kwargs["color_discrete_sequence"] = [line_color]
 
             fig = px.line(**plotting_kwargs)
-            if self.estimator is not None and self.errorbar is not None:
+
+            draw_ci = self.estimator is not None and self.errorbar is not sub_data['ymax'].isna().all()
+            if draw_ci:
                 fig.data[0].error_y = dict(
                     type="data",
                     array=sub_data['ymax']-sub_data['y'],
@@ -404,7 +406,7 @@ class LinePlotter(_sns.relational._LinePlotter):
 
             # --- Draw the confidence intervals
 
-            if self.estimator is not None and self.errorbar is not None:
+            if draw_ci:
 
                 #     # TODO handling of orientation will need to happen here
 
