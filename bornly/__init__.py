@@ -69,13 +69,13 @@ class Ax:
         pass
 
     def fill_between(
-        self, x, y1, y2, alpha=None, color=None, rgba=None, legend=None, label=None
+        self, x, y1, y2, alpha=None, color=None, rgba=None, legend=None, label=None, legendgroup=None, hoverinfo=None,
     ):
         # need to figure this out if I want to make progress...
         if rgba is None and color is not None and alpha is not None:
             rgba = _convert_color(color, alpha)
         self._figure.add_traces(
-            go.Scatter(x=x, y=y2, line=dict(color="rgba(0,0,0,0)"), showlegend=False)
+            go.Scatter(x=x, y=y2, line=dict(color="rgba(0,0,0,0)"), showlegend=False, legendgroup=legendgroup, hoverinfo=hoverinfo)
         )
 
         self._figure.add_traces(
@@ -87,6 +87,8 @@ class Ax:
                 fillcolor=rgba,
                 showlegend=legend,
                 name=label,
+                legendgroup=legendgroup,
+                hoverinfo=hoverinfo,
             )
         )
 
@@ -389,6 +391,8 @@ class LinePlotter(_sns.relational._LinePlotter):
                     sub_data["ymax"],
                     rgba=fill_color,
                     legend=False,
+                    legendgroup=sub_vars['hue'],
+                    hoverinfo='skip',
                 )
 
                 if self.err_style == "bars":
@@ -1366,7 +1370,7 @@ def histplot(
     p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
 
     if ax is not None:
-        raise NotImplementedError('passing `ax` is not supported')
+        raise NotImplementedError('passing `ax` to `histogram` is not supported')
 
     if stat != 'count':
         raise NotImplementedError('only count stat is currently supported')
@@ -1384,12 +1388,13 @@ def histplot(
         plotting_kwargs = dict(
             data_frame=p.plot_data.rename(columns=p.variables),
             x=p.variables['x'],
+            barmode='overlay',
         )
         if bins != 'auto':
             plotting_kwargs['nbins'] = bins
         if hue is not None:
             plotting_kwargs['color'] = hue
-        plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, .5)
+        plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1)
         if kde:
             plotting_kwargs['marginal'] = 'violin'
         fig = px.histogram(**plotting_kwargs)
