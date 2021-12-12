@@ -393,7 +393,7 @@ class LinePlotter(_sns.relational._LinePlotter):
 
             fig = px.line(**plotting_kwargs)
 
-            draw_ci = self.estimator is not None and self.errorbar is not sub_data['ymax'].isna().all()
+            draw_ci = (self.estimator is not None) and (self.errorbar is not None) and (not sub_data['ymax'].isna().all())
             if draw_ci:
                 fig.data[0].error_y = dict(
                     type="data",
