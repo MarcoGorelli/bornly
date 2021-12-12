@@ -1316,5 +1316,5 @@ def regplot(
     scatter_kws["marker"] = marker
     line_kws = {} if line_kws is None else copy.copy(line_kws)
     plotter.plot(ax, scatter_kws, line_kws)
-    return ax
+    return ax._figure
 
