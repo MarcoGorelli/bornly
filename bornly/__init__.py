@@ -64,18 +64,35 @@ class Ax:
     def set(self, **kwargs):
         for key, val in kwargs.items():
             getattr(self, f"set_{key}")(val)
-    
+
     def bar(self, *args, **kwargs):
         pass
 
     def fill_between(
-        self, x, y1, y2, alpha=None, color=None, rgba=None, legend=None, label=None, legendgroup=None, hoverinfo=None,
+        self,
+        x,
+        y1,
+        y2,
+        alpha=None,
+        color=None,
+        rgba=None,
+        legend=None,
+        label=None,
+        legendgroup=None,
+        hoverinfo=None,
     ):
         # need to figure this out if I want to make progress...
         if rgba is None and color is not None and alpha is not None:
             rgba = _convert_color(color, alpha)
         self._figure.add_traces(
-            go.Scatter(x=x, y=y2, line=dict(color="rgba(0,0,0,0)"), showlegend=False, legendgroup=legendgroup, hoverinfo=hoverinfo)
+            go.Scatter(
+                x=x,
+                y=y2,
+                line=dict(color="rgba(0,0,0,0)"),
+                showlegend=False,
+                legendgroup=legendgroup,
+                hoverinfo=hoverinfo,
+            )
         )
 
         self._figure.add_traces(
@@ -375,6 +392,12 @@ class LinePlotter(_sns.relational._LinePlotter):
             plotting_kwargs["color_discrete_sequence"] = [line_color]
 
             fig = px.line(**plotting_kwargs)
+            if self.estimator is not None and self.errorbar is not None:
+                fig.data[0].error_y = dict(
+                    type="data",
+                    array=sub_data['ymax']-sub_data['y'],
+                    color="rgba(0, 0, 0, 0)",
+                )
             ax(fig)
             ax.set_xlabel(self.variables["x"])
             ax.set_ylabel(self.variables["y"])
@@ -391,8 +414,8 @@ class LinePlotter(_sns.relational._LinePlotter):
                     sub_data["ymax"],
                     rgba=fill_color,
                     legend=False,
-                    legendgroup=sub_vars['hue'],
-                    hoverinfo='skip',
+                    legendgroup=sub_vars.get('hue', ''),
+                    hoverinfo="skip",
                 )
 
                 if self.err_style == "bars":
@@ -1106,24 +1129,24 @@ class BarPlotter(_sns.categorical._BarPlotter):
         """Draw the bars onto `ax`."""
         # Get the right matplotlib function depending on the orientation
 
-        data = pd.DataFrame({'y': self.statistic.flatten()})
+        data = pd.DataFrame({"y": self.statistic.flatten()})
         plotting_kwargs = dict(
             data_frame=data,
-            x='x',
-            y='y',
+            x="x",
+            y="y",
             color_discrete_sequence=_get_colors(-1, 1, self.colors),
         )
         if self.plot_hues is None:
-            data['x'] = self.group_names
-            data["err"] = self.confint[:, 1] - data['y']
-            plotting_kwargs["color"] = 'x'
+            data["x"] = self.group_names
+            data["err"] = self.confint[:, 1] - data["y"]
+            plotting_kwargs["color"] = "x"
         else:
-            data[['hue', 'x']] = _cartesian(self.hue_names, self.group_names)
-            data["err"] = self.confint[:, :, 1].flatten() - data['y']
-            plotting_kwargs["color"] = 'hue'
+            data[["hue", "x"]] = _cartesian(self.hue_names, self.group_names)
+            data["err"] = self.confint[:, :, 1].flatten() - data["y"]
+            plotting_kwargs["color"] = "hue"
             plotting_kwargs["barmode"] = "group"
 
-        plotting_kwargs["category_orders"] = {'x': self.group_names}
+        plotting_kwargs["category_orders"] = {"x": self.group_names}
 
         if not np.isnan(data["err"]).all():
             plotting_kwargs["error_y"] = "err"
@@ -1209,6 +1232,7 @@ def barplot(
     plotter.plot(ax, kwargs)
     return ax._figure
 
+
 class RegressionPlotter(_sns.regression._RegressionPlotter):
     def plot(self, ax, scatter_kws, line_kws):
         """Draw the full plot."""
@@ -1262,12 +1286,19 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
                 lw = mpl.rcParams["lines.markeredgewidth"]
             kws.setdefault("linewidths", lw)
 
-            if not hasattr(kws['color'], 'shape') or kws['color'].shape[1] < 4:
-                kws.setdefault("alpha", .8)
+            if not hasattr(kws["color"], "shape") or kws["color"].shape[1] < 4:
+                kws.setdefault("alpha", 0.8)
 
             x, y = self.scatter_data
-            data = pd.DataFrame({'x': x, 'y': y})
-            fig = px.scatter(data, x='x', y='y', color_discrete_sequence=[_convert_color(mpl.colors.to_rgb(kws['color']), kws['alpha'])])
+            data = pd.DataFrame({"x": x, "y": y})
+            fig = px.scatter(
+                data,
+                x="x",
+                y="y",
+                color_discrete_sequence=[
+                    _convert_color(mpl.colors.to_rgb(kws["color"]), kws["alpha"])
+                ],
+            )
             ax(fig)
             # ax.scatter(x, y, **kws)
         else:
@@ -1294,34 +1325,89 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
         kws.setdefault("linewidth", lw)
 
         # Draw the regression line and confidence interval
-        data = pd.DataFrame({'x': grid, 'y': yhat})
-        fig = px.line(data, x='x', y='y', color_discrete_sequence=[_convert_color(mpl.colors.to_rgb(kws['color']), 1)])
+        data = pd.DataFrame({"x": grid, "y": yhat})
+        fig = px.line(
+            data,
+            x="x",
+            y="y",
+            color_discrete_sequence=[
+                _convert_color(mpl.colors.to_rgb(kws["color"]), 1)
+            ],
+        )
         ax(fig)
 
         # line, = ax.plot(grid, yhat, **kws)
         # if not self.truncate:
         #     line.sticky_edges.x[:] = edges  # Prevent mpl from adding margin
         if err_bands is not None:
-            ax.fill_between(grid, *err_bands, rgba=_convert_color(mpl.colors.to_rgb(fill_color), .15), legend=False)
+            ax.fill_between(
+                grid,
+                *err_bands,
+                rgba=_convert_color(mpl.colors.to_rgb(fill_color), 0.15),
+                legend=False,
+            )
+
 
 def regplot(
     *,
-    x=None, y=None,
+    x=None,
+    y=None,
     data=None,
-    x_estimator=None, x_bins=None, x_ci="ci",
-    scatter=True, fit_reg=True, ci=95, n_boot=1000, units=None,
-    seed=None, order=1, logistic=False, lowess=False, robust=False,
-    logx=False, x_partial=None, y_partial=None,
-    truncate=True, dropna=True, x_jitter=None, y_jitter=None,
-    label=None, color=None, marker="o",
-    scatter_kws=None, line_kws=None, ax=None
+    x_estimator=None,
+    x_bins=None,
+    x_ci="ci",
+    scatter=True,
+    fit_reg=True,
+    ci=95,
+    n_boot=1000,
+    units=None,
+    seed=None,
+    order=1,
+    logistic=False,
+    lowess=False,
+    robust=False,
+    logx=False,
+    x_partial=None,
+    y_partial=None,
+    truncate=True,
+    dropna=True,
+    x_jitter=None,
+    y_jitter=None,
+    label=None,
+    color=None,
+    marker="o",
+    scatter_kws=None,
+    line_kws=None,
+    ax=None,
 ):
 
-    plotter = RegressionPlotter(x, y, data, x_estimator, x_bins, x_ci,
-                                 scatter, fit_reg, ci, n_boot, units, seed,
-                                 order, logistic, lowess, robust, logx,
-                                 x_partial, y_partial, truncate, dropna,
-                                 x_jitter, y_jitter, color, label)
+    plotter = RegressionPlotter(
+        x,
+        y,
+        data,
+        x_estimator,
+        x_bins,
+        x_ci,
+        scatter,
+        fit_reg,
+        ci,
+        n_boot,
+        units,
+        seed,
+        order,
+        logistic,
+        lowess,
+        robust,
+        logx,
+        x_partial,
+        y_partial,
+        truncate,
+        dropna,
+        x_jitter,
+        y_jitter,
+        color,
+        label,
+    )
 
     if ax is None:
         _, ax = subplots()
@@ -1332,49 +1418,76 @@ def regplot(
     plotter.plot(ax, scatter_kws, line_kws)
     return ax._figure
 
+
 def distplot(*args, **kwargs):
-    raise NotImplementedError('distplot not available, use histplot instead')
+    raise NotImplementedError("distplot not available, use histplot instead")
+
 
 def displot(*args, **kwargs):
-    raise NotImplementedError('displot not available yet, use histplot and/or kdeplot')
+    raise NotImplementedError("displot not available yet, use histplot and/or kdeplot")
+
 
 def lmplot(*args, **kwargs):
-    raise NotImplementedError('lmplot not available yet, use regplot instead')
+    raise NotImplementedError("lmplot not available yet, use regplot instead")
+
 
 def histplot(
-    data=None, *,
+    data=None,
+    *,
     # Vector variables
-    x=None, y=None, hue=None, weights=None,
+    x=None,
+    y=None,
+    hue=None,
+    weights=None,
     # Histogram computation parameters
-    stat="count", bins="auto", binwidth=None, binrange=None,
-    discrete=None, cumulative=False, common_bins=True, common_norm=True,
+    stat="count",
+    bins="auto",
+    binwidth=None,
+    binrange=None,
+    discrete=None,
+    cumulative=False,
+    common_bins=True,
+    common_norm=True,
     # Histogram appearance parameters
-    multiple="layer", element="bars", fill=True, shrink=1,
+    multiple="layer",
+    element="bars",
+    fill=True,
+    shrink=1,
     # Histogram smoothing with a kernel density estimate
-    kde=False, kde_kws=None, line_kws=None,
+    kde=False,
+    kde_kws=None,
+    line_kws=None,
     # Bivariate histogram parameters
-    thresh=0, pthresh=None, pmax=None, cbar=False, cbar_ax=None, cbar_kws=None,
+    thresh=0,
+    pthresh=None,
+    pmax=None,
+    cbar=False,
+    cbar_ax=None,
+    cbar_kws=None,
     # Hue mapping parameters
-    palette=None, hue_order=None, hue_norm=None, color=None,
+    palette=None,
+    hue_order=None,
+    hue_norm=None,
+    color=None,
     # Axes information
-    log_scale=None, legend=True, ax=None,
+    log_scale=None,
+    legend=True,
+    ax=None,
     # Other appearance keywords
     **kwargs,
 ):
 
     p = DistributionPlotter(
-        data=data,
-        variables=DistributionPlotter.get_semantics(locals())
+        data=data, variables=DistributionPlotter.get_semantics(locals())
     )
 
     p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
 
     if ax is not None:
-        raise NotImplementedError('passing `ax` to `histogram` is not supported')
+        raise NotImplementedError("passing `ax` to `histogram` is not supported")
 
-    if stat != 'count':
-        raise NotImplementedError('only count stat is currently supported')
-
+    if stat != "count":
+        raise NotImplementedError("only count stat is currently supported")
 
     if not p.has_xy_data:
         return ax
@@ -1383,22 +1496,21 @@ def histplot(
     if discrete is None:
         discrete = p._default_discrete()
 
-
     if p.univariate:
         plotting_kwargs = dict(
             data_frame=p.plot_data.rename(columns=p.variables),
-            x=p.variables['x'],
-            barmode='overlay',
+            x=p.variables["x"],
+            barmode="overlay",
         )
-        if bins != 'auto':
-            plotting_kwargs['nbins'] = bins
+        if bins != "auto":
+            plotting_kwargs["nbins"] = bins
         if hue is not None:
-            plotting_kwargs['color'] = hue
-        plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1)
+            plotting_kwargs["color"] = hue
+        plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
         if kde:
-            plotting_kwargs['marginal'] = 'violin'
+            plotting_kwargs["marginal"] = "violin"
         fig = px.histogram(**plotting_kwargs)
         return fig
 
     else:
-        raise NotImplementedError('bivariate histogram not yet supported')
+        raise NotImplementedError("bivariate histogram not yet supported")
