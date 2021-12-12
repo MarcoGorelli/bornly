@@ -671,6 +671,9 @@ def kdeplot(
     if not p.has_xy_data:
         return ax
 
+    if fill is not None:
+        raise NotImplementedError('fill is not yet available')
+
     # Pack the kwargs for statistics.KDE
     estimate_kws = dict(
         bw_method=bw_method,
@@ -1516,3 +1519,6 @@ def histplot(
 
     else:
         raise NotImplementedError("bivariate histogram not yet supported")
+
+def relplot(*args, **kwargs):
+    raise NotImplementedError('relplot is not available yet')
