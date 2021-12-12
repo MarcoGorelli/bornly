@@ -64,6 +64,9 @@ class Ax:
     def set(self, **kwargs):
         for key, val in kwargs.items():
             getattr(self, f"set_{key}")(val)
+    
+    def bar(self, *args, **kwargs):
+        pass
 
     def fill_between(
         self, x, y1, y2, alpha=None, color=None, rgba=None, legend=None, label=None
@@ -122,7 +125,9 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
 
 
 def _convert_color(color, alpha):
-    return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
+    if alpha is not None:
+        return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
+    return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
 
 
 def _deconvert_rgba(rgba, alpha):
@@ -1323,3 +1328,102 @@ def regplot(
     plotter.plot(ax, scatter_kws, line_kws)
     return ax._figure
 
+def distplot(*args, **kwargs):
+    raise NotImplementedError('distplot not available, use histplot instead')
+
+def displot(*args, **kwargs):
+    raise NotImplementedError('displot not available yet, use histplot and/or kdeplot')
+
+def lmplot(*args, **kwargs):
+    raise NotImplementedError('lmplot not available yet, use regplot instead')
+
+def histplot(
+    data=None, *,
+    # Vector variables
+    x=None, y=None, hue=None, weights=None,
+    # Histogram computation parameters
+    stat="count", bins="auto", binwidth=None, binrange=None,
+    discrete=None, cumulative=False, common_bins=True, common_norm=True,
+    # Histogram appearance parameters
+    multiple="layer", element="bars", fill=True, shrink=1,
+    # Histogram smoothing with a kernel density estimate
+    kde=False, kde_kws=None, line_kws=None,
+    # Bivariate histogram parameters
+    thresh=0, pthresh=None, pmax=None, cbar=False, cbar_ax=None, cbar_kws=None,
+    # Hue mapping parameters
+    palette=None, hue_order=None, hue_norm=None, color=None,
+    # Axes information
+    log_scale=None, legend=True, ax=None,
+    # Other appearance keywords
+    **kwargs,
+):
+
+    p = DistributionPlotter(
+        data=data,
+        variables=DistributionPlotter.get_semantics(locals())
+    )
+
+    p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
+
+    if ax is None:
+        _, ax = subplots()
+
+    if stat != 'count':
+        raise NotImplementedError('only count stat is currently supported')
+
+    if p.univariate:  # Note, bivariate plots won't cycle
+        if fill:
+            method = ax.bar if element == "bars" else ax.fill_between
+        else:
+            method = ax.plot
+        # color = _sns.distributions._default_color(method, hue, color, kwargs)
+
+    if not p.has_xy_data:
+        return ax
+
+    # Default to discrete bins for categorical variables
+    if discrete is None:
+        discrete = p._default_discrete()
+
+    estimate_kws = dict(
+        stat=stat,
+        bins=bins,
+        binwidth=binwidth,
+        binrange=binrange,
+        discrete=discrete,
+        cumulative=cumulative,
+    )
+
+    if p.univariate:
+        plotting_kwargs = dict(
+            data_frame=p.plot_data.rename(columns=p.variables),
+            x=p.variables['x'],
+        )
+        if bins != 'auto':
+            plotting_kwargs['nbins'] = bins
+        if hue is not None:
+            plotting_kwargs['color'] = hue
+        plotting_kwargs['color_discrete_sequence'] = _get_colors(-1, 1)
+        fig = px.histogram(**plotting_kwargs)
+        import numpy as np
+        import plotly.figure_factory as ff
+        alldata = []
+        allnames = []
+        binsizes = []
+        for d_ in fig.data:
+            data = d_['x']
+            data = data[~np.isnan(data)]
+            alldata.append(data)
+            allnames.append(d_.name)
+            binsizes.append(np.diff(np.histogram_bin_edges(data))[0])
+        finalfig = ff.create_distplot(alldata, allnames, colors=_get_colors(len(alldata), None), show_rug=False, show_curve=kde, bin_size=binsizes)
+        finalfig.update_xaxes( title_text=p.variables['x'],)
+        finalfig.update_yaxes( title_text='count')
+        if 'hue' in p.variables:
+            finalfig.update_layout(legend_title=p.variables['hue'])
+        return finalfig
+
+    else:
+        raise NotImplementedError('bivariate histogram not yet supported')
+
+    return ax
