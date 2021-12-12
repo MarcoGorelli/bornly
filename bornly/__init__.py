@@ -129,7 +129,6 @@ def _deconvert_rgba(rgba, alpha):
     import re
 
     re.findall(r"\d+", rgba)
-    breakpoint()
 
 
 def _get_colors(n, alpha, palette=None):
@@ -1098,24 +1097,24 @@ class BarPlotter(_sns.categorical._BarPlotter):
         """Draw the bars onto `ax`."""
         # Get the right matplotlib function depending on the orientation
 
-        data = pd.DataFrame({self.y: self.statistic.flatten()})
+        data = pd.DataFrame({'y': self.statistic.flatten()})
         plotting_kwargs = dict(
             data_frame=data,
-            x=self.x,
-            y=self.y,
+            x='x',
+            y='y',
             color_discrete_sequence=_get_colors(-1, 1, self.colors),
         )
         if self.plot_hues is None:
-            data[self.x] = self.group_names
-            data["err"] = self.confint[:, 1] - data[self.y]
-            plotting_kwargs["color"] = self.x
+            data['x'] = self.group_names
+            data["err"] = self.confint[:, 1] - data['y']
+            plotting_kwargs["color"] = 'x'
         else:
-            data[[self.hue, self.x]] = _cartesian(self.hue_names, self.group_names)
-            data["err"] = self.confint[:, :, 1].flatten() - data[self.y]
-            plotting_kwargs["color"] = self.hue
+            data[['hue', 'x']] = _cartesian(self.hue_names, self.group_names)
+            data["err"] = self.confint[:, :, 1].flatten() - data['y']
+            plotting_kwargs["color"] = 'hue'
             plotting_kwargs["barmode"] = "group"
 
-        plotting_kwargs["category_orders"] = {self.x: self.group_names}
+        plotting_kwargs["category_orders"] = {'x': self.group_names}
 
         if not np.isnan(data["err"]).all():
             plotting_kwargs["error_y"] = "err"
@@ -1130,10 +1129,17 @@ class BarPlotter(_sns.categorical._BarPlotter):
                 plotting_kwargs["error_x"] = plotting_kwargs.pop("error_y")
 
         fig = px.bar(**plotting_kwargs)
-        if self.orient == 'h':
-            fig.layout.xaxis.title.text, fig.layout.yaxis.title.text = fig.layout.yaxis.title.text, fig.layout.xaxis.title.text
         ax(fig)
+        if self.orient == "v":
+            xlabel, ylabel = self.group_label, self.value_label
+        else:
+            xlabel, ylabel = self.value_label, self.group_label
         ax._figure.update_layout(fig.layout)
+        ax.set(xlabel=xlabel, ylabel=ylabel)
+        if self.hue_names is not None:
+            ax._figure.layout.legend.title = self.hue_title
+        else:
+            ax._figure.update_layout(showlegend=False)
 
 
 def barplot(
@@ -1261,7 +1267,6 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
             ci_kws["linewidth"] = mpl.rcParams["lines.linewidth"] * 1.75
             kws.setdefault("s", 50)
 
-            breakpoint()
             xs, ys, cis = self.estimate_data
             if [ci for ci in cis if ci is not None]:
                 for x, ci in zip(xs, cis):
