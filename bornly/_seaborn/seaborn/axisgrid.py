@@ -319,6 +319,7 @@ class FacetGrid(Grid):
         margin_titles=False, xlim=None, ylim=None, subplot_kws=None,
         gridspec_kws=None, size=None
     ):
+        breakpoint()
 
         super(FacetGrid, self).__init__()
 
@@ -344,6 +345,7 @@ class FacetGrid(Grid):
         else:
             row_names = categorical_order(data[row], row_order)
 
+        breakpoint()
         if col is None:
             col_names = []
         else:

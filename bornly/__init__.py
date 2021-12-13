@@ -193,7 +193,7 @@ class ScatterPlotter(_sns.relational._ScatterPlotter):
         }
         if "palette" in self.variables:
             if isinstance(self.variables["palette"], dict):
-                plotting_kwargs["color_discrete_map"] = { key: _convert_color(val, 1) for key, val in self.variables["palette"].items() }
+                plotting_kwargs["color_discrete_map"] = { key: _convert_color(_sns.color_palette([val])[0], 1) for key, val in self.variables["palette"].items() }
             else:
                 plotting_kwargs["color_discrete_sequence"] = _get_colors(
                     -1, 1, _sns.color_palette(self.variables["palette"])
@@ -1504,6 +1504,12 @@ def histplot(
 
 
 class FacetGrid(_sns.axisgrid.FacetGrid):
+    def update_hover(self, plot_variables, variables):
+        for data in self.figure.data:
+            for key, val in variables.items():
+                if val is not None:
+                    data.hovertemplate = data.hovertemplate.replace(f'{plot_variables[key]}=', f'{val}=')
+    
     def tight_layout(self, *args, **kwargs):
         pass
 
@@ -1841,7 +1847,7 @@ def relplot(
         markers=markers,
         dashes=dashes,
         style_order=style_order,
-        legend=False,
+        legend=True,
     )
     plot_kws.update(kwargs)
     if kind == "scatter":
@@ -1897,7 +1903,10 @@ def relplot(
     g.map_dataframe(func, **plot_kws)
 
     # Label the axes
+    breakpoint()
     g.set_axis_labels(variables.get("x", None), variables.get("y", None))
+
+    g.update_hover(plot_variables, variables)
 
     # Show the legend
     if legend:
@@ -1905,6 +1914,15 @@ def relplot(
         # numeric data with the correct type
         p.plot_data = plot_data
         p.add_legend_data(g.axes.flat[0])
+
+        in_legend = {i.name for i in g.figure.data if i.showlegend}
+        counts = {key: 0 for key in in_legend}
+        for data_ in g.figure.data:
+            if not data_.showlegend:
+                continue
+            counts[data_.name] += 1
+            if counts[data_.name] > 1:
+                data_.showlegend = False
         # if p.legend_data:
         #     g.add_legend(
         #         legend_data=p.legend_data,
@@ -1929,4 +1947,4 @@ def relplot(
     else:
         g.data = grid_data
 
-    return g
+    return g._figure
