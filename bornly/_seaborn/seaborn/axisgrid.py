@@ -751,7 +751,7 @@ class FacetGrid(Grid):
                 continue
 
             # Get the current axis
-            modify_state = not str(func.__module__).startswith("seaborn")
+            modify_state = not str(func.__module__).startswith("bornly")
             ax = self.facet_axis(row_i, col_j, modify_state)
 
             # Decide what color to plot with
@@ -793,7 +793,7 @@ class FacetGrid(Grid):
     def _facet_plot(self, func, ax, plot_args, plot_kwargs):
 
         # Draw the plot
-        if str(func.__module__).startswith("seaborn"):
+        if str(func.__module__).startswith("bornly"):
             plot_kwargs = plot_kwargs.copy()
             semantics = ["x", "y", "hue", "size", "style"]
             for key, val in zip(semantics, plot_args):
@@ -821,7 +821,8 @@ class FacetGrid(Grid):
 
         # Get a reference to the axes object we want, and make it active
         if modify_state:
-            plt.sca(ax)
+            pass
+            # plt.sca(ax)
         return ax
 
     def despine(self, **kwargs):

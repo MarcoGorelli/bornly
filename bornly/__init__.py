@@ -31,14 +31,17 @@ class Ax:
     def __call__(self, figure):
         return self._func(figure)
 
+    def scatter(self, *args, **kwargs):
+        pass
+
     @property
-    def _figure(self):
+    def figure(self):
         return self._func.keywords["figure"]
 
     def _find_annotation(self):
-        return self._figure.layout.annotations[self._row * self._ncols + self._col]
+        return self.figure.layout.annotations[self._row * self._ncols + self._col]
 
-    def set_title(self, title):
+    def set_title(self, title, *args, **kwargs):
         annotation = self._find_annotation()
         if title is not None:
             annotation.update(text=title)
@@ -46,20 +49,16 @@ class Ax:
             annotation.update(text="")
 
     def set_ylabel(self, label):
-        self._figure.update_yaxes(
-            title_text=label, row=self._row + 1, col=self._col + 1
-        )
+        self.figure.update_yaxes(title_text=label, row=self._row + 1, col=self._col + 1)
 
     def set_xlabel(self, label):
-        self._figure.update_xaxes(
-            title_text=label, row=self._row + 1, col=self._col + 1
-        )
+        self.figure.update_xaxes(title_text=label, row=self._row + 1, col=self._col + 1)
 
     def set_ylim(self, ylim):
-        self._figure.update_yaxes(range=ylim, row=self._row + 1, col=self._col + 1)
+        self.figure.update_yaxes(range=ylim, row=self._row + 1, col=self._col + 1)
 
     def set_xlim(self, xlim):
-        self._figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
+        self.figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
 
     def set(self, **kwargs):
         for key, val in kwargs.items():
@@ -84,7 +83,7 @@ class Ax:
         # need to figure this out if I want to make progress...
         if rgba is None and color is not None and alpha is not None:
             rgba = _convert_color(color, alpha)
-        self._figure.add_traces(
+        self.figure.add_trace(
             go.Scatter(
                 x=x,
                 y=y2,
@@ -92,10 +91,12 @@ class Ax:
                 showlegend=False,
                 legendgroup=legendgroup,
                 hoverinfo=hoverinfo,
-            )
+            ),
+            row=self._row+1,
+            col=self._col+1,
         )
 
-        self._figure.add_traces(
+        self.figure.add_trace(
             go.Scatter(
                 x=x,
                 y=y1,
@@ -106,7 +107,9 @@ class Ax:
                 name=label,
                 legendgroup=legendgroup,
                 hoverinfo=hoverinfo,
-            )
+            ),
+            row=self._row+1,
+            col=self._col+1,
         )
 
 
@@ -115,7 +118,7 @@ def _add_to_fig(subplot, figure, row, col):
         figure.add_trace(data, row=row + 1, col=col + 1)
 
 
-def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
+def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, wrap=True, **kwargs):
     fig = make_subplots(
         nrows,
         ncols,
@@ -136,6 +139,8 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, **kwargs):
         ]
         for row in range(nrows)
     ]
+    if not wrap:
+        return fig, np.asarray(ax)
     if (nrows == 1) and (ncols == 1):
         return fig, ax[0][0]
     if (nrows == 1) or (ncols == 1):
@@ -165,40 +170,6 @@ def _get_colors(n, alpha, palette=None):
     return [_convert_color(color, alpha) for color in colors]
 
 
-def _plot_hue(df_, name, label, color, x, y):
-    rgb = f"rgba({color[0]}, {color[1]}, {color[2]}"
-    fill_rgba = f"{rgb},0)"
-    line_rgba = f"{rgb},1)"
-    fig = px.line(
-        df_,
-        x=x,
-        y="value",
-        color="variable",
-        color_discrete_map={f"{y}_lower": fill_rgba, f"{y}_upper": fill_rgba},
-    )
-
-    fig.update_traces(selector=dict(name=f"{y}_upper"), showlegend=False)
-    fig.update_traces(fill="tonexty")
-    if name is None:
-        fig.update_traces(
-            fillcolor="rgba(0,0,0,0)",
-            selector=dict(name=y),
-            line_color=line_rgba,
-            showlegend=False,
-        )
-    else:
-        fig.update_traces(
-            fillcolor="rgba(0,0,0,0)",
-            selector=dict(name=name),
-            name=label,
-            line_color=line_rgba,
-        )
-    fig.update_traces(
-        fillcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        selector=dict(name=f"{y}_lower"),
-    )
-    return fig
 
 
 class ScatterPlotter(_sns.relational._ScatterPlotter):
@@ -221,9 +192,12 @@ class ScatterPlotter(_sns.relational._ScatterPlotter):
             "y": self.variables["y"],
         }
         if "palette" in self.variables:
-            plotting_kwargs["color_discrete_sequence"] = _get_colors(
-                -1, 1, _sns.color_palette(self.variables["palette"])
-            )
+            if isinstance(self.variables["palette"], dict):
+                plotting_kwargs["color_discrete_map"] = { key: _convert_color(val, 1) for key, val in self.variables["palette"].items() }
+            else:
+                plotting_kwargs["color_discrete_sequence"] = _get_colors(
+                    -1, 1, _sns.color_palette(self.variables["palette"])
+                )
         else:
             plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
         if "hue" in self.variables:
@@ -293,16 +267,17 @@ def scatterplot(
     if sizes is not None:
         p.variables["sizes"] = sizes
     if hue_order is not None:
-        raise NotImplementedError("hue_order isn't available yet")
+        pass
+        # raise NotImplementedError("hue_order isn't available yet")
 
     if ax is None:
         _, ax = subplots()
 
     if not p.has_xy_data:
-        return ax._figure
+        return ax.figure
 
     p.plot(ax, kwargs)
-    return ax._figure
+    return ax.figure
 
 
 class LinePlotter(_sns.relational._LinePlotter):
@@ -393,11 +368,15 @@ class LinePlotter(_sns.relational._LinePlotter):
 
             fig = px.line(**plotting_kwargs)
 
-            draw_ci = (self.estimator is not None) and (self.errorbar is not None) and (not sub_data['ymax'].isna().all())
+            draw_ci = (
+                (self.estimator is not None)
+                and (self.errorbar is not None)
+                and (not sub_data["ymax"].isna().all())
+            )
             if draw_ci:
                 fig.data[0].error_y = dict(
                     type="data",
-                    array=sub_data['ymax']-sub_data['y'],
+                    array=sub_data["ymax"] - sub_data["y"],
                     color="rgba(0, 0, 0, 0)",
                 )
             ax(fig)
@@ -416,7 +395,7 @@ class LinePlotter(_sns.relational._LinePlotter):
                     sub_data["ymax"],
                     rgba=fill_color,
                     legend=False,
-                    legendgroup=sub_vars.get('hue', ''),
+                    legendgroup=sub_vars.get("hue", ""),
                     hoverinfo="skip",
                 )
 
@@ -424,7 +403,7 @@ class LinePlotter(_sns.relational._LinePlotter):
                     raise NotImplementedError("Can't use bars are err_style")
 
         if "hue" in sub_vars:
-            ax._figure.update_layout(legend_title=self.variables["hue"])
+            ax.figure.update_layout(legend_title=self.variables["hue"])
 
 
 def lineplot(
@@ -475,10 +454,10 @@ def lineplot(
         _, ax = subplots()
 
     if not p.has_xy_data:
-        return ax._figure
+        return ax.figure
 
     p.plot(ax, kwargs)
-    return ax._figure
+    return ax.figure
 
 
 class DistributionPlotter(_sns.distributions._DistributionPlotter):
@@ -660,8 +639,9 @@ def kdeplot(
 
     p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
 
-    if ax is None:
-        _, ax = subplots()
+    if ax is not None:
+        raise NotImplementedError("passing ax is not supported")
+    _, ax = subplots()
 
     # p._attach(ax, allowed_types=["numeric", "datetime"], log_scale=log_scale)
 
@@ -672,7 +652,7 @@ def kdeplot(
         return ax
 
     if fill is not None:
-        raise NotImplementedError('fill is not yet available')
+        raise NotImplementedError("fill is not yet available")
 
     # Pack the kwargs for statistics.KDE
     estimate_kws = dict(
@@ -719,7 +699,7 @@ def kdeplot(
     #         **kwargs,
     #     )
 
-    return ax._figure
+    return ax.figure
 
 
 class HeatMapper(_sns.matrix._HeatMapper):
@@ -739,7 +719,7 @@ class HeatMapper(_sns.matrix._HeatMapper):
             xaxis_showgrid=False, yaxis_showgrid=False, template="plotly_white"
         )
         ax(fig)
-        ax._figure.update_layout(fig.layout)
+        ax.figure.update_layout(fig.layout)
 
 
 def heatmap(
@@ -965,12 +945,13 @@ def heatmap(
     kwargs["edgecolor"] = linecolor
 
     # Draw the plot and return the Axes
-    if ax is None:
-        _, ax = subplots()
-    # if square:
-    #     ax.set_aspect("equal")
+    if ax is not None:
+        raise NotImplementedError("Passing ax is not supported")
+    _, ax = subplots()
+    if square:
+        ax.figure["layout"]["yaxis"]["scaleanchor"] = "x"
     plotter.plot(ax, cbar_ax, kwargs)
-    return ax._figure
+    return ax.figure
 
 
 def pairplot(
@@ -1171,12 +1152,12 @@ class BarPlotter(_sns.categorical._BarPlotter):
             xlabel, ylabel = self.group_label, self.value_label
         else:
             xlabel, ylabel = self.value_label, self.group_label
-        ax._figure.update_layout(fig.layout)
+        ax.figure.update_layout(fig.layout)
         ax.set(xlabel=xlabel, ylabel=ylabel)
         if self.hue_names is not None:
-            ax._figure.layout.legend.title = self.hue_title
+            ax.figure.layout.legend.title = self.hue_title
         else:
-            ax._figure.update_layout(showlegend=False)
+            ax.figure.update_layout(showlegend=False)
 
 
 def barplot(
@@ -1231,11 +1212,12 @@ def barplot(
     plotter.y = y
     plotter.estimator = estimator
 
-    if ax is None:
-        _, ax = subplots()
+    if ax is not None:
+        raise NotImplementedError("passing ax is not supported")
+    _, ax = subplots()
 
     plotter.plot(ax, kwargs)
-    return ax._figure
+    return ax.figure
 
 
 class RegressionPlotter(_sns.regression._RegressionPlotter):
@@ -1421,7 +1403,7 @@ def regplot(
     scatter_kws["marker"] = marker
     line_kws = {} if line_kws is None else copy.copy(line_kws)
     plotter.plot(ax, scatter_kws, line_kws)
-    return ax._figure
+    return ax.figure
 
 
 def distplot(*args, **kwargs):
@@ -1520,5 +1502,431 @@ def histplot(
     else:
         raise NotImplementedError("bivariate histogram not yet supported")
 
-def relplot(*args, **kwargs):
-    raise NotImplementedError('relplot is not available yet')
+
+class FacetGrid(_sns.axisgrid.FacetGrid):
+    def tight_layout(self, *args, **kwargs):
+        pass
+
+    def despine(self, *args, **kwargs):
+        pass
+
+    @property
+    def _not_bottom_axes(self):
+        """Return a flat array of axes that aren't on the bottom row."""
+        if self._col_wrap is None:
+            return iter(self.axes[:-1, :].flatten())
+        else:
+            axes = []
+            n_empty = self._nrow * self._ncol - self._n_facets
+            for i, ax in enumerate(self.axes):
+                append = i < (self._ncol * (self._nrow - 1)) and i < (
+                    self._ncol * (self._nrow - 1) - n_empty
+                )
+                if append:
+                    axes.append(ax)
+            return np.array(axes, object).flat
+
+    def _update_legend_data(self, ax):
+        pass
+
+    def add_legend(self, *args, **kwargs):
+        pass
+
+    def __init__(
+        self,
+        data,
+        *,
+        row=None,
+        col=None,
+        hue=None,
+        col_wrap=None,
+        sharex=True,
+        sharey=True,
+        height=3,
+        aspect=1,
+        palette=None,
+        row_order=None,
+        col_order=None,
+        hue_order=None,
+        hue_kws=None,
+        dropna=False,
+        legend_out=True,
+        despine=True,
+        margin_titles=False,
+        xlim=None,
+        ylim=None,
+        subplot_kws=None,
+        gridspec_kws=None,
+    ):
+
+        super(_sns.axisgrid.FacetGrid, self).__init__()
+
+        # Determine the hue facet layer information
+        hue_var = hue
+        if hue is None:
+            hue_names = None
+        else:
+            hue_names = _sns.axisgrid.categorical_order(data[hue], hue_order)
+
+        colors = self._get_palette(data, hue, hue_order, palette)
+
+        # Set up the lists of names for the row and column facet variables
+        if row is None:
+            row_names = []
+        else:
+            row_names = _sns.axisgrid.categorical_order(data[row], row_order)
+
+        if col is None:
+            col_names = []
+        else:
+            col_names = _sns.axisgrid.categorical_order(data[col], col_order)
+
+        # Additional dict of kwarg -> list of values for mapping the hue var
+        hue_kws = hue_kws if hue_kws is not None else {}
+
+        # Make a boolean mask that is True anywhere there is an NA
+        # value in one of the faceting variables, but only if dropna is True
+        none_na = np.zeros(len(data), bool)
+        if dropna:
+            row_na = none_na if row is None else data[row].isnull()
+            col_na = none_na if col is None else data[col].isnull()
+            hue_na = none_na if hue is None else data[hue].isnull()
+            not_na = ~(row_na | col_na | hue_na)
+        else:
+            not_na = ~none_na
+
+        # Compute the grid shape
+        ncol = 1 if col is None else len(col_names)
+        nrow = 1 if row is None else len(row_names)
+        self._n_facets = ncol * nrow
+
+        self._col_wrap = col_wrap
+        if col_wrap is not None:
+            if row is not None:
+                err = "Cannot use `row` and `col_wrap` together."
+                raise ValueError(err)
+            ncol = col_wrap
+            nrow = int(np.ceil(len(col_names) / col_wrap))
+        self._ncol = ncol
+        self._nrow = nrow
+
+        # Calculate the base figure size
+        # This can get stretched later by a legend
+        # TODO this doesn't account for axis labels
+        figsize = (ncol * height * aspect, nrow * height)
+
+        # Validate some inputs
+        if col_wrap is not None:
+            margin_titles = False
+
+        # Build the subplot keyword dictionary
+        subplot_kws = {} if subplot_kws is None else subplot_kws.copy()
+        gridspec_kws = {} if gridspec_kws is None else gridspec_kws.copy()
+        if xlim is not None:
+            subplot_kws["xlim"] = xlim
+        if ylim is not None:
+            subplot_kws["ylim"] = ylim
+
+        # --- Initialize the subplot grid
+
+        # Disable autolayout so legend_out works properly
+
+        if col_wrap is None:
+
+            kwargs = dict(
+                squeeze=False,
+                sharex=sharex,
+                sharey=sharey,
+                subplot_kw=subplot_kws,
+                gridspec_kw=gridspec_kws,
+            )
+
+            fig, axes = subplots(nrow, ncol, wrap=False, **kwargs)
+
+            if col is None and row is None:
+                axes_dict = {}
+            elif col is None:
+                axes_dict = dict(zip(row_names, axes.flat))
+            elif row is None:
+                axes_dict = dict(zip(col_names, axes.flat))
+            else:
+                facet_product = _sns.axisgrid.product(row_names, col_names)
+                axes_dict = dict(zip(facet_product, axes.flat))
+
+        else:
+            raise NotImplementedError()
+            # # If wrapping the col variable we need to make the grid ourselves
+            # if gridspec_kws:
+            #     warnings.warn("`gridspec_kws` ignored when using `col_wrap`")
+
+            # n_axes = len(col_names)
+            # axes = np.empty(n_axes, object)
+            # axes[0] = fig.add_subplot(nrow, ncol, 1, **subplot_kws)
+            # if sharex:
+            #     subplot_kws["sharex"] = axes[0]
+            # if sharey:
+            #     subplot_kws["sharey"] = axes[0]
+            # for i in range(1, n_axes):
+            #     axes[i] = fig.add_subplot(nrow, ncol, i + 1, **subplot_kws)
+
+            # axes_dict = dict(zip(col_names, axes))
+
+        # --- Set up the class attributes
+
+        # Attributes that are part of the public API but accessed through
+        # a  property so that Sphinx adds them to the auto class doc
+        self._figure = fig
+        self._axes = axes
+        self._axes_dict = axes_dict
+        self._legend = None
+
+        # Public attributes that aren't explicitly documented
+        # (It's not obvious that having them be public was a good idea)
+        self.data = data
+        self.row_names = row_names
+        self.col_names = col_names
+        self.hue_names = hue_names
+        self.hue_kws = hue_kws
+
+        # Next the private variables
+        self._nrow = nrow
+        self._row_var = row
+        self._ncol = ncol
+        self._col_var = col
+
+        self._margin_titles = margin_titles
+        self._margin_titles_texts = []
+        self._col_wrap = col_wrap
+        self._hue_var = hue_var
+        self._colors = colors
+        self._legend_out = legend_out
+        self._legend_data = {}
+        self._x_var = None
+        self._y_var = None
+        self._sharex = sharex
+        self._sharey = sharey
+        self._dropna = dropna
+        self._not_na = not_na
+
+        # --- Make the axes look good
+
+        self.set_titles()
+        self.tight_layout()
+
+        if despine:
+            self.despine()
+
+        # if sharex in [True, 'col']:
+        #     for ax in self._not_bottom_axes:
+        #         for label in ax.get_xticklabels():
+        #             label.set_visible(False)
+        #         ax.xaxis.offsetText.set_visible(False)
+        #         ax.xaxis.label.set_visible(False)
+
+        # if sharey in [True, 'row']:
+        #     for ax in self._not_left_axes:
+        #         for label in ax.get_yticklabels():
+        #             label.set_visible(False)
+        #         ax.yaxis.offsetText.set_visible(False)
+        #         ax.yaxis.label.set_visible(False)
+
+
+def relplot(
+    *,
+    x=None,
+    y=None,
+    hue=None,
+    size=None,
+    style=None,
+    data=None,
+    row=None,
+    col=None,
+    col_wrap=None,
+    row_order=None,
+    col_order=None,
+    palette=None,
+    hue_order=None,
+    hue_norm=None,
+    sizes=None,
+    size_order=None,
+    size_norm=None,
+    markers=None,
+    dashes=None,
+    style_order=None,
+    legend=True,
+    kind="scatter",
+    height=5,
+    aspect=1,
+    facet_kws=None,
+    units=None,
+    **kwargs,
+):
+
+    if kind == "scatter":
+
+        plotter = ScatterPlotter
+        func = scatterplot
+        markers = True if markers is None else markers
+
+    elif kind == "line":
+
+        plotter = LinePlotter
+        func = lineplot
+        dashes = True if dashes is None else dashes
+
+    else:
+        err = "Plot kind {} not recognized".format(kind)
+        raise ValueError(err)
+
+    # Check for attempt to plot onto specific axes and warn
+    if "ax" in kwargs:
+        msg = (
+            "relplot is a figure-level function and does not accept "
+            "the `ax` parameter. You may wish to try {}".format(kind + "plot")
+        )
+        import warnings
+
+        warnings.warn(msg, UserWarning)
+        kwargs.pop("ax")
+
+    # Use the full dataset to map the semantics
+    p = plotter(
+        data=data,
+        variables=plotter.get_semantics(locals()),
+        legend=legend,
+    )
+    p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
+    p.map_size(sizes=sizes, order=size_order, norm=size_norm)
+    p.map_style(markers=markers, dashes=dashes, order=style_order)
+
+    # Extract the semantic mappings
+    if "hue" in p.variables:
+        palette = p._hue_map.lookup_table
+        hue_order = p._hue_map.levels
+        hue_norm = p._hue_map.norm
+    else:
+        palette = hue_order = hue_norm = None
+
+    if "size" in p.variables:
+        sizes = p._size_map.lookup_table
+        size_order = p._size_map.levels
+        size_norm = p._size_map.norm
+
+    if "style" in p.variables:
+        style_order = p._style_map.levels
+        if markers:
+            markers = {k: p._style_map(k, "marker") for k in style_order}
+        else:
+            markers = None
+        if dashes:
+            dashes = {k: p._style_map(k, "dashes") for k in style_order}
+        else:
+            dashes = None
+    else:
+        markers = dashes = style_order = None
+
+    # Now extract the data that would be used to draw a single plot
+    variables = p.variables
+    plot_data = p.plot_data
+    plot_semantics = p.semantics
+
+    # Define the common plotting parameters
+    plot_kws = dict(
+        palette=palette,
+        hue_order=hue_order,
+        hue_norm=hue_norm,
+        sizes=sizes,
+        size_order=size_order,
+        size_norm=size_norm,
+        markers=markers,
+        dashes=dashes,
+        style_order=style_order,
+        legend=False,
+    )
+    plot_kws.update(kwargs)
+    if kind == "scatter":
+        plot_kws.pop("dashes")
+
+    # Add the grid semantics onto the plotter
+    grid_semantics = "row", "col"
+    p.semantics = plot_semantics + grid_semantics
+    p.assign_variables(
+        data=data,
+        variables=dict(
+            x=x,
+            y=y,
+            hue=hue,
+            size=size,
+            style=style,
+            units=units,
+            row=row,
+            col=col,
+        ),
+    )
+
+    # Define the named variables for plotting on each facet
+    # Rename the variables with a leading underscore to avoid
+    # collisions with faceting variable names
+    plot_variables = {v: f"_{v}" for v in variables}
+    plot_kws.update(plot_variables)
+
+    # Pass the row/col variables to FacetGrid with their original
+    # names so that the axes titles render correctly
+    grid_kws = {v: p.variables.get(v, None) for v in grid_semantics}
+
+    # Rename the columns of the plot_data structure appropriately
+    new_cols = plot_variables.copy()
+    new_cols.update(grid_kws)
+    full_data = p.plot_data.rename(columns=new_cols)
+
+    # Set up the FacetGrid object
+    facet_kws = {} if facet_kws is None else facet_kws.copy()
+    g = FacetGrid(
+        data=full_data.dropna(axis=1, how="all"),
+        **grid_kws,
+        col_wrap=col_wrap,
+        row_order=row_order,
+        col_order=col_order,
+        height=height,
+        aspect=aspect,
+        dropna=False,
+        **facet_kws,
+    )
+
+    # Draw the plot
+    g.map_dataframe(func, **plot_kws)
+
+    # Label the axes
+    g.set_axis_labels(variables.get("x", None), variables.get("y", None))
+
+    # Show the legend
+    if legend:
+        # Replace the original plot data so the legend uses
+        # numeric data with the correct type
+        p.plot_data = plot_data
+        p.add_legend_data(g.axes.flat[0])
+        # if p.legend_data:
+        #     g.add_legend(
+        #         legend_data=p.legend_data,
+        #         label_order=p.legend_order,
+        #         title=p.legend_title,
+        #         adjust_subtitles=True,
+        #     )
+
+    # Rename the columns of the FacetGrid's `data` attribute
+    # to match the original column names
+    orig_cols = {f"_{k}": f"_{k}_" if v is None else v for k, v in variables.items()}
+    grid_data = g.data.rename(columns=orig_cols)
+    if data is not None and (x is not None or y is not None):
+        if not isinstance(data, pd.DataFrame):
+            data = pd.DataFrame(data)
+        g.data = pd.merge(
+            data,
+            grid_data[grid_data.columns.difference(data.columns)],
+            left_index=True,
+            right_index=True,
+        )
+    else:
+        g.data = grid_data
+
+    return g

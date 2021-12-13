@@ -323,29 +323,29 @@ class _RelationalPlotter(VectorPlotter):
                         dashes=attrs.get("dashes", ""),
                     )
 
-        func = getattr(ax, self._legend_func)
+        # func = getattr(ax, self._legend_func)
 
-        legend_data = {}
-        legend_order = []
+        # legend_data = {}
+        # legend_order = []
 
-        for key in keys:
+        # for key in keys:
 
-            _, label = key
-            kws = legend_kwargs[key]
-            kws.setdefault("color", ".2")
-            use_kws = {}
-            for attr in self._legend_attributes + ["visible"]:
-                if attr in kws:
-                    use_kws[attr] = kws[attr]
-            artist = func([], [], label=label, **use_kws)
-            if self._legend_func == "plot":
-                artist = artist[0]
-            legend_data[key] = artist
-            legend_order.append(key)
+        #     _, label = key
+        #     kws = legend_kwargs[key]
+        #     kws.setdefault("color", ".2")
+        #     use_kws = {}
+        #     for attr in self._legend_attributes + ["visible"]:
+        #         if attr in kws:
+        #             use_kws[attr] = kws[attr]
+        #     artist = func([], [], label=label, **use_kws)
+        #     if self._legend_func == "plot":
+        #         artist = artist[0]
+        #     legend_data[key] = artist
+        #     legend_order.append(key)
 
-        self.legend_title = legend_title
-        self.legend_data = legend_data
-        self.legend_order = legend_order
+        # self.legend_title = legend_title
+        # self.legend_data = legend_data
+        # self.legend_order = legend_order
 
 
 class _LinePlotter(_RelationalPlotter):
