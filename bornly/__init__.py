@@ -1286,8 +1286,11 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
                     _convert_color(mpl.colors.to_rgb(kws["color"]), kws["alpha"])
                 ],
             )
+            fig.data[0].legendgroup = self.label
+            fig.data[0].name = self.label
+            fig.data[0].showlegend=True
             ax(fig)
-            # ax.scatter(x, y, **kws)
+            ax.figure.update_layout(fig.layout)
         else:
             # TODO abstraction
             ci_kws = {"color": kws["color"]}
@@ -1313,6 +1316,9 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
 
         # Draw the regression line and confidence interval
         data = pd.DataFrame({"x": grid, "y": yhat})
+
+        
+        
         fig = px.line(
             data,
             x="x",
@@ -1321,7 +1327,17 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
                 _convert_color(mpl.colors.to_rgb(kws["color"]), 1)
             ],
         )
+        if err_bands is not None:
+            fig.data[0].error_y = dict(
+                type="data",
+                array=err_bands[1] - data['y'],
+                color="rgba(0, 0, 0, 0)",
+            )
+        assert(len(fig.data) == 1)
+        legendgroup = self.label
+        fig.data[0].legendgroup = legendgroup
         ax(fig)
+        ax.figure.update_layout(fig.layout)
 
         # line, = ax.plot(grid, yhat, **kws)
         # if not self.truncate:
@@ -1332,6 +1348,8 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
                 *err_bands,
                 rgba=_convert_color(mpl.colors.to_rgb(fill_color), 0.15),
                 legend=False,
+                legendgroup=legendgroup,
+                hoverinfo="skip",
             )
 
 
@@ -1367,7 +1385,6 @@ def regplot(
     line_kws=None,
     ax=None,
 ):
-
     plotter = RegressionPlotter(
         x,
         y,
@@ -1414,8 +1431,6 @@ def displot(*args, **kwargs):
     raise NotImplementedError("displot not available yet, use histplot and/or kdeplot")
 
 
-def lmplot(*args, **kwargs):
-    raise NotImplementedError("lmplot not available yet, use regplot instead")
 
 
 def histplot(
@@ -1506,6 +1521,8 @@ def histplot(
 class FacetGrid(_sns.axisgrid.FacetGrid):
     def update_hover(self, plot_variables, variables):
         for data in self.figure.data:
+            if data.hovertemplate is None:
+                continue
             for key, val in variables.items():
                 if val is not None:
                     data.hovertemplate = data.hovertemplate.replace(f'{plot_variables[key]}=', f'{val}=')
@@ -1948,3 +1965,79 @@ def relplot(
         g.data = grid_data
 
     return g._figure
+
+def lmplot(
+    *,
+    x=None, y=None,
+    data=None,
+    hue=None, col=None, row=None,  # TODO move before data once * is enforced
+    palette=None, col_wrap=None, height=5, aspect=1, markers="o",
+    hue_order=None, col_order=None, row_order=None,
+    legend=True, x_estimator=None, x_bins=None,
+    x_ci="ci", scatter=True, fit_reg=True, ci=95, n_boot=1000,
+    units=None, seed=None, order=1, logistic=False, lowess=False,
+    robust=False, logx=False, x_partial=None, y_partial=None,
+    truncate=True, x_jitter=None, y_jitter=None, scatter_kws=None,
+    line_kws=None, facet_kws=None
+):
+
+
+    if facet_kws is None:
+        facet_kws = {}
+
+    if data is None:
+        raise TypeError("Missing required keyword argument `data`.")
+
+    # Reduce the dataframe to only needed columns
+    need_cols = [x, y, hue, col, row, units, x_partial, y_partial]
+    cols = np.unique([a for a in need_cols if a is not None]).tolist()
+    data = data[cols]
+
+    # Initialize the grid
+    facets = FacetGrid(
+        data, row=row, col=col, hue=hue,
+        palette=palette,
+        row_order=row_order, col_order=col_order, hue_order=hue_order,
+        height=height, aspect=aspect, col_wrap=col_wrap,
+        **facet_kws,
+    )
+
+    # Add the markers here as FacetGrid has figured out how many levels of the
+    # hue variable are needed and we don't want to duplicate that process
+    if facets.hue_names is None:
+        n_markers = 1
+    else:
+        n_markers = len(facets.hue_names)
+    if not isinstance(markers, list):
+        markers = [markers] * n_markers
+    if len(markers) != n_markers:
+        raise ValueError(("markers must be a singleton or a list of markers "
+                          "for each level of the hue variable"))
+    facets.hue_kws = {"marker": markers}
+
+    def update_datalim(data, x, y, ax, **kws):
+        pass
+        # xys = data[[x, y]].to_numpy().astype(float)
+        # ax.update_datalim(xys, updatey=False)
+        # ax.autoscale_view(scaley=False)
+
+    facets.map_dataframe(update_datalim, x=x, y=y)
+
+    # Draw the regression plot on each facet
+    regplot_kws = dict(
+        x_estimator=x_estimator, x_bins=x_bins, x_ci=x_ci,
+        scatter=scatter, fit_reg=fit_reg, ci=ci, n_boot=n_boot, units=units,
+        seed=seed, order=order, logistic=logistic, lowess=lowess,
+        robust=robust, logx=logx, x_partial=x_partial, y_partial=y_partial,
+        truncate=truncate, x_jitter=x_jitter, y_jitter=y_jitter,
+        scatter_kws=scatter_kws, line_kws=line_kws,
+    )
+    facets.map_dataframe(regplot, x=x, y=y, **regplot_kws)
+    facets.set_axis_labels(x, y)
+
+    # Add a legend
+    breakpoint()
+    if legend and (hue is not None) and (hue not in [col, row]):
+        facets._figure.layout.legend.title = hue
+    facets.update_hover({'x': 'x', 'y': 'y'}, {'x': x, 'y': y})
+    return facets._figure

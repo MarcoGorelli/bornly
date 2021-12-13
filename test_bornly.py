@@ -10,5 +10,6 @@ fmri = sns.load_dataset("fmri")
 #     hue="time", size="size", style="sex",
 #     palette=["b", "r"], sizes=(10, 100)
 # )
-flights_wide = sns.load_dataset("flights").pivot("year", "month", "passengers")
-bns.relplot(data=flights_wide, kind="line")
+# flights_wide = sns.load_dataset("flights").pivot("year", "month", "passengers")
+# bns.relplot(data=flights_wide, kind="line")
+bns.lmplot(x="total_bill", y="tip", hue="smoker", data=tips)
