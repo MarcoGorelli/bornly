@@ -158,6 +158,7 @@ def _default_color(method, hue, color, kws):
         facecolor = scout.get_facecolor()
         color = to_rgb(facecolor[0])
         scout.remove()
+    breakpoint()
 
     return color
 

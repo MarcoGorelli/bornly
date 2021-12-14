@@ -21,8 +21,12 @@ from bornly._seaborn.seaborn import (
 def _cartesian(x, y):
     return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
-def _add_alpha_to_rgba(rgba, alpha=1):
-    return (rgba[:-2] + str(alpha) + ')')
+def _add_alpha_to_rgb(rgb, alpha=1):
+    breakpoint()
+    return (rgb[:-2] + str(alpha) + ')').replace('rgb(', 'rgba(')
+
+def _deconvert_rgba(rgba):
+    return tuple([float(i)/255 for i in rgba.strip('rgba()').split(',')[:3]])
 
 class Foo:
     update_units = lambda *_: None
@@ -35,16 +39,22 @@ class Line:
     def set_color(self, color):
         self.scatter.marker.update(color=_convert_color(color, 1))
     def get_color(self):
-        return self.scatter.marker.color
+        return _deconvert_rgba(self.scatter.marker.color)
     def get_alpha(self):
-        pass
+        pass  # todo
     def get_solid_capstyle(self):
-        pass
+        pass  # huh
     def remove(self):
         pass
     def set_dashes(self, dashes):
         if dashes:
             self.scatter.line.update(dash=', '.join([str(i) for i in dashes]))
+    @property
+    def sticky_edges(self):
+        class Foo:
+            x = []
+            y = []
+        return Foo()
     
 class Legend:
     def __init__(self, legend):
@@ -71,24 +81,18 @@ class Ax:
     def xaxis(self):
         return Foo()
 
-    def get_alpha(self):
-        return 1
-    def get_solid_capstyle(self):
-        return 1
     def get_xlabel(self, visible=None):
-        return None
+        return self.figure.layout.xaxis.title.text
     def get_ylabel(self, visible=None):
-        return None
+        return self.figure.layout.yaxis.title.text
     def get_legend_handles_labels(self):
         return self.figure.layout.legend, None
     def set_color(self, color):
         self.figure.data[-1].marker.update(color=color)
     def get_xticklabels(self):
-        return []
+        return []  # todo
     def get_yticklabels(self):
-        return []
-    def remove(self):
-        pass
+        return []  # todo
 
     def legend(self, title):
         self.figure.layout.legend.title = title
@@ -99,25 +103,30 @@ class Ax:
             color = kwargs.get('color', None)
             if isinstance(color, str) and color.startswith('rgba('):
                 pass
+            elif isinstance(color, tuple) and len(color) == 4:
+                color = _convert_color(color[:3], color[3])
             elif isinstance(color, tuple) and len(color) == 3:
                 color = _convert_color(color, 1)
             else:
-                color = matplotlib.colors.ColorConverter.colors[color]
+                color = _convert_color(matplotlib.colors.ColorConverter.colors[color], 1)
         else:
             color = _get_colors(1, 1)[0]
         fig = go.Scatter(x=x, y=y, mode='lines', legendgroup=kwargs.get('label', None), name=kwargs.get('label', None), marker=dict(color=color))
         self.figure.add_trace(fig, row=self._row+1, col=self._col+1)
         return Line(self.figure.data[-1]),
     
-    def get_color(self):
-        pass
+    def add_legend(self, legend_data, **kwargs):
+        for key, val in legend_data.items():
+            color = val.get_color()
+            for _data in self.figure.data:
+                if Line(_data).get_color() == color[:3]:
+                    _data.legendgroup = key
+        self.figure.layout.legend.title = kwargs.get('title')
+        return Legend(self.figure.layout.legend)
 
 
     def __call__(self, figure):
         return self._func(figure)
-
-    def scatter(self, *args, **kwargs):
-        pass
 
     @property
     def figure(self):
@@ -149,9 +158,6 @@ class Ax:
         for key, val in kwargs.items():
             getattr(self, f"set_{key}")(val)
 
-    def bar(self, *args, **kwargs):
-        pass
-
     def fill_between(
         self,
         x,
@@ -159,10 +165,10 @@ class Ax:
         y2,
         **kwargs,
     ):
-        rgba = kwargs.get('color', None)
+        rgb = kwargs.get('color', None)
         alpha = kwargs.get('alpha', None)
-        if rgba is not None:
-            rgba = _add_alpha_to_rgba(rgba, alpha)
+        if rgb is not None:
+            rgba = _convert_color(rgb, alpha)
         self.figure.add_trace(
             go.Scatter(
                 x=x,
@@ -234,12 +240,6 @@ def _convert_color(color, alpha):
     return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
 
 
-def _deconvert_rgba(rgba, alpha):
-    import re
-
-    re.findall(r"\d+", rgba)
-
-
 def _get_colors(n, alpha, palette=None):
     if palette is None:
         palette = _sns.color_palette()
@@ -252,6 +252,8 @@ def _get_colors(n, alpha, palette=None):
 
 
 
+# not easy to override `ax.scatter`, so got to do it
+# this way, unfortunately
 class ScatterPlotter(_sns.relational._ScatterPlotter):
     @property
     def reverse_variables(self):
@@ -361,246 +363,6 @@ def scatterplot(
 
 
 
-class DistributionPlotter(_sns.distributions._DistributionPlotter):
-    def plot_univariate_density(
-        self,
-        multiple,
-        common_norm,
-        common_grid,
-        warn_singular,
-        fill,
-        color,
-        legend,
-        estimate_kws,
-        ax,
-        **plot_kws,
-    ):
-
-        # Handle conditional defaults
-        if fill is None:
-            fill = multiple in ("stack", "fill")
-
-        # plot_kws = _normalize_kwargs(plot_kws, artist)
-
-        # Input checking
-        _sns.distributions._check_argument(
-            "multiple", ["layer", "stack", "fill"], multiple
-        )
-
-        # Always share the evaluation grid when stacking
-        subsets = bool(set(self.variables) - {"x", "y"})
-        if subsets and multiple in ("stack", "fill"):
-            common_grid = True
-
-        # Check if the data axis is log scaled
-        log_scale = self._log_scaled(self.data_variable)
-
-        # Do the computation
-        densities = self._compute_univariate_density(
-            self.data_variable,
-            common_norm,
-            common_grid,
-            estimate_kws,
-            log_scale,
-            warn_singular,
-        )
-
-        # Adjust densities based on the `multiple` rule
-        densities, baselines = self._resolve_multiple(densities, multiple)
-
-        # Control the interaction with autoscaling by defining sticky_edges
-        # i.e. we don't want autoscale margins below the density curve
-        sticky_density = (0, 1) if multiple == "fill" else (0, np.inf)
-
-        if multiple == "fill":
-            # Filled plots should not have any margins
-            sticky_support = densities.index.min(), densities.index.max()
-        else:
-            sticky_support = []
-
-        if fill:
-            if multiple == "layer":
-                default_alpha = 0.25
-            else:
-                default_alpha = 0.75
-        else:
-            default_alpha = 1
-        alpha = plot_kws.pop("alpha", default_alpha)  # TODO make parameter?
-
-        # Now iterate through the subsets and draw the densities
-        # We go backwards so stacked densities read from top-to-bottom
-        for sub_vars, _ in self.iter_data("hue", reverse=True):
-
-            # Extract the support grid and density curve for this level
-            key = tuple(sub_vars.items())
-            try:
-                density = densities[key]
-            except KeyError:
-                continue
-            support = density.index
-            fill_from = baselines[key]
-
-            # ax = self._get_axes(sub_vars)
-
-            if "hue" in self.variables:
-                sub_color = self._hue_map(sub_vars["hue"])
-            else:
-                sub_color = color
-
-            # artist_kws = self._artist_kws(
-            #     plot_kws, fill, False, multiple, sub_color, alpha
-            # )
-
-            # Either plot a curve with observation values on the x axis
-            if "x" in self.variables:
-
-                if fill:
-                    raise NotImplementedError("fill isn't supported yet")
-
-                else:
-                    sub_data = (
-                        density.to_frame(name="support")
-                        .reset_index()
-                        .rename(columns={"index": "density"})
-                    )
-                    if "hue" in sub_vars:
-                        sub_data["hue"] = sub_vars["hue"]
-                    plotting_kwargs = {
-                        "data_frame": sub_data,
-                        "x": "density",
-                        "y": "support",
-                    }
-                    if "hue" in sub_vars:
-                        plotting_kwargs["color"] = "hue"
-                        color = _convert_color(self._hue_map(sub_vars["hue"]), 1)
-                    else:
-                        color = _get_colors(1, 1)[0]
-                    plotting_kwargs["color_discrete_sequence"] = [color]
-                    fig = px.line(**plotting_kwargs)
-                    ax(fig)
-                    ax.set_xlabel(self.variables["x"])
-                    ax.set_ylabel("Density")
-
-        # --- Finalize the plot ----
-
-
-def kdeplot(
-    x=None,  # Allow positional x, because behavior will not change with reorg
-    *,
-    y=None,
-    gridsize=200,  # TODO maybe depend on uni/bivariate?
-    cut=3,
-    clip=None,
-    legend=True,
-    cumulative=False,
-    cbar=False,
-    cbar_ax=None,
-    cbar_kws=None,
-    ax=None,
-    # New params
-    weights=None,  # TODO note that weights is grouped with semantics
-    hue=None,
-    palette=None,
-    hue_order=None,
-    hue_norm=None,
-    multiple="layer",
-    common_norm=True,
-    common_grid=False,
-    levels=10,
-    thresh=0.05,
-    bw_method="scott",
-    bw_adjust=1,
-    log_scale=None,
-    color=None,
-    fill=None,
-    # Renamed params
-    data=None,
-    # New in v0.12
-    warn_singular=True,
-    **kwargs,
-):
-    # Handle `n_levels`
-    # This was never in the formal API but it was processed, and appeared in an
-    # example. We can treat as an alias for `levels` now and deprecate later.
-    levels = kwargs.pop("n_levels", levels)
-
-    # Handle "soft" deprecation of shade `shade` is not really the right
-    # terminology here, but unlike some of the other deprecated parameters it
-    # is probably very commonly used and much hard to remove. This is therefore
-    # going to be a longer process where, first, `fill` will be introduced and
-    # be used throughout the documentation. In 0.12, when kwarg-only
-    # enforcement hits, we can remove the shade/shade_lowest out of the
-    # function signature all together and pull them out of the kwargs. Then we
-    # can actually fire a FutureWarning, and eventually remove.
-
-    p = DistributionPlotter(
-        data=data,
-        variables=DistributionPlotter.get_semantics(locals()),
-    )
-
-    p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
-
-    if ax is not None:
-        raise NotImplementedError("passing ax is not supported")
-    _, ax = subplots()
-
-    # p._attach(ax, allowed_types=["numeric", "datetime"], log_scale=log_scale)
-
-    # method = ax.fill_between if fill else ax.plot
-    # color = _sns.distributions._default_color(method, hue, color, kwargs)
-
-    if not p.has_xy_data:
-        return ax
-
-    if fill is not None:
-        raise NotImplementedError("fill is not yet available")
-
-    # Pack the kwargs for statistics.KDE
-    estimate_kws = dict(
-        bw_method=bw_method,
-        bw_adjust=bw_adjust,
-        gridsize=gridsize,
-        cut=cut,
-        clip=clip,
-        cumulative=cumulative,
-    )
-
-    if p.univariate:
-
-        plot_kws = kwargs.copy()
-
-        p.plot_univariate_density(
-            multiple=multiple,
-            common_norm=common_norm,
-            common_grid=common_grid,
-            fill=fill,
-            color=color,
-            legend=legend,
-            warn_singular=warn_singular,
-            estimate_kws=estimate_kws,
-            ax=ax,
-            **plot_kws,
-        )
-
-    else:
-
-        raise NotImplementedError("bivariate kde coming soon!")
-    #     p.plot_bivariate_density(
-    #         common_norm=common_norm,
-    #         fill=fill,
-    #         levels=levels,
-    #         thresh=thresh,
-    #         legend=legend,
-    #         color=color,
-    #         warn_singular=warn_singular,
-    #         cbar=cbar,
-    #         cbar_ax=cbar_ax,
-    #         cbar_kws=cbar_kws,
-    #         estimate_kws=estimate_kws,
-    #         **kwargs,
-    #     )
-
-    return ax.figure
 
 
 class HeatMapper(_sns.matrix._HeatMapper):
@@ -1946,6 +1708,10 @@ def lineplot(**kwargs):
     legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup}
     if not legend_map:
         fig.update_layout(showlegend=False)
+
+    x_label = ax.get_xlabel()
+    y_label = ax.get_ylabel()
+        
     for _data in fig.data:
         if _data.marker.color is not None:
             _color = _data.marker.color
@@ -1955,4 +1721,33 @@ def lineplot(**kwargs):
             continue
         _data.legendgroup = legend_map.get(','.join(_color.split(',')[:3]))
         _data.name = legend_map.get(','.join(_color.split(',')[:3]))
+        if not _data.hoverinfo == 'skip':
+            _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
+    fig.layout.xaxis.title.text
+    return fig
+
+def kdeplot(**kwargs):
+    if kwargs.get('ax') is None:
+        _, ax = subplots() 
+    else:
+        ax = kwargs.pop('ax')
+    fig = _sns.kdeplot(ax=ax, **kwargs).figure
+    legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup}
+    if not legend_map:
+        fig.update_layout(showlegend=False)
+
+    x_label = ax.get_xlabel()
+    y_label = ax.get_ylabel()
+        
+    for _data in fig.data:
+        if _data.marker.color is not None:
+            _color = _data.marker.color
+        elif _data.fillcolor is not None:
+            _color = _data.fillcolor
+        else:
+            continue
+        _data.legendgroup = legend_map.get(','.join(_color.split(',')[:3]))
+        _data.name = legend_map.get(','.join(_color.split(',')[:3]))
+        if not _data.hoverinfo == 'skip':
+            _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
     return fig
