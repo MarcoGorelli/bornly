@@ -1,4 +1,5 @@
 import seaborn as sns
+import matplotlib.pyplot as plt
 import bornly as bns
 import plotly.express as px
 tips = sns.load_dataset("tips")
@@ -12,4 +13,10 @@ fmri = sns.load_dataset("fmri")
 # )
 # flights_wide = sns.load_dataset("flights").pivot("year", "month", "passengers")
 # bns.relplot(data=flights_wide, kind="line")
-bns.lmplot(x="total_bill", y="tip", hue="smoker", data=tips)
+# bns.lmplot(x="total_bill", y="tip", hue="smoker", data=tips)
+
+fig, ax = bns.subplots()
+# bns.lineplot(data=fmri, x='timepoint', y='signal', hue='event', ax=ax)
+bns.lineplot(data=fmri)
+# fig, ax = plt.subplots()
+# bns._sns.lineplot(data=fmri, x='timepoint', y='signal', ax=ax, color='b')

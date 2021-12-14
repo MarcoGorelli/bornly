@@ -1,6 +1,8 @@
 import functools
+import matplotlib
 import copy
 import matplotlib as mpl
+from matplotlib.pyplot import legend
 
 import numpy as np
 import pandas as pd
@@ -19,7 +21,41 @@ from bornly._seaborn.seaborn import (
 def _cartesian(x, y):
     return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
+def _add_alpha_to_rgba(rgba, alpha=1):
+    return (rgba[:-2] + str(alpha) + ')')
 
+class Foo:
+    update_units = lambda *_: None
+    convert_units = lambda x, y: y
+    get_scale = lambda *_: None
+
+class Line:
+    def __init__(self, scatter):
+        self.scatter = scatter
+    def set_color(self, color):
+        self.scatter.marker.update(color=_convert_color(color, 1))
+    def get_color(self):
+        return self.scatter.marker.color
+    def get_alpha(self):
+        pass
+    def get_solid_capstyle(self):
+        pass
+    def remove(self):
+        pass
+    def set_dashes(self, dashes):
+        if dashes:
+            self.scatter.line.update(dash=', '.join([str(i) for i in dashes]))
+    
+class Legend:
+    def __init__(self, legend):
+        self.legend = legend
+    
+    def findobj(self, obj):
+        class Foo:
+            def get_children(self):
+                return []
+        return [Foo()]
+    
 class Ax:
     def __init__(self, func, *, nrows, ncols):
         self._func = func
@@ -27,6 +63,55 @@ class Ax:
         self._col = func.keywords["col"]
         self._nrows = nrows
         self._ncols = ncols
+
+    @property
+    def yaxis(self):
+        return Foo()
+    @property
+    def xaxis(self):
+        return Foo()
+
+    def get_alpha(self):
+        return 1
+    def get_solid_capstyle(self):
+        return 1
+    def get_xlabel(self, visible=None):
+        return None
+    def get_ylabel(self, visible=None):
+        return None
+    def get_legend_handles_labels(self):
+        return self.figure.layout.legend, None
+    def set_color(self, color):
+        self.figure.data[-1].marker.update(color=color)
+    def get_xticklabels(self):
+        return []
+    def get_yticklabels(self):
+        return []
+    def remove(self):
+        pass
+
+    def legend(self, title):
+        self.figure.layout.legend.title = title
+        return Legend(self.figure.layout.legend)
+    
+    def plot(self, x, y, **kwargs):
+        if kwargs.get('color', None) is not None:
+            color = kwargs.get('color', None)
+            if isinstance(color, str) and color.startswith('rgba('):
+                pass
+            elif isinstance(color, tuple) and len(color) == 3:
+                color = _convert_color(color, 1)
+            else:
+                color = matplotlib.colors.ColorConverter.colors[color]
+        else:
+            color = _get_colors(1, 1)[0]
+        fig = go.Scatter(x=x, y=y, mode='lines', legendgroup=kwargs.get('label', None), name=kwargs.get('label', None), marker=dict(color=color))
+        self.figure.add_trace(fig, row=self._row+1, col=self._col+1)
+        return Line(self.figure.data[-1]),
+    
+    def get_color(self):
+        pass
+
 
     def __call__(self, figure):
         return self._func(figure)
@@ -48,10 +133,10 @@ class Ax:
         else:
             annotation.update(text="")
 
-    def set_ylabel(self, label):
+    def set_ylabel(self, label, visible=None):
         self.figure.update_yaxes(title_text=label, row=self._row + 1, col=self._col + 1)
 
-    def set_xlabel(self, label):
+    def set_xlabel(self, label, visible=None):
         self.figure.update_xaxes(title_text=label, row=self._row + 1, col=self._col + 1)
 
     def set_ylim(self, ylim):
@@ -72,25 +157,20 @@ class Ax:
         x,
         y1,
         y2,
-        alpha=None,
-        color=None,
-        rgba=None,
-        legend=None,
-        label=None,
-        legendgroup=None,
-        hoverinfo=None,
+        **kwargs,
     ):
-        # need to figure this out if I want to make progress...
-        if rgba is None and color is not None and alpha is not None:
-            rgba = _convert_color(color, alpha)
+        rgba = kwargs.get('color', None)
+        alpha = kwargs.get('alpha', None)
+        if rgba is not None:
+            rgba = _add_alpha_to_rgba(rgba, alpha)
         self.figure.add_trace(
             go.Scatter(
                 x=x,
                 y=y2,
                 line=dict(color="rgba(0,0,0,0)"),
                 showlegend=False,
-                legendgroup=legendgroup,
-                hoverinfo=hoverinfo,
+                # legendgroup=legendgroup,
+                hoverinfo='skip',
             ),
             row=self._row+1,
             col=self._col+1,
@@ -103,10 +183,10 @@ class Ax:
                 line=dict(color="rgba(0,0,0,0)"),
                 fill="tonexty",
                 fillcolor=rgba,
-                showlegend=legend,
-                name=label,
-                legendgroup=legendgroup,
-                hoverinfo=hoverinfo,
+                showlegend=False,
+                # name=label,
+                # legendgroup=legendgroup,
+                hoverinfo='skip',
             ),
             row=self._row+1,
             col=self._col+1,
@@ -279,185 +359,6 @@ def scatterplot(
     p.plot(ax, kwargs)
     return ax.figure
 
-
-class LinePlotter(_sns.relational._LinePlotter):
-    def plot(self, ax, kws):
-        """Draw the plot onto an axes, passing matplotlib kwargs."""
-
-        # Draw a test plot, using the passed in kwargs. The goal here is to
-        # honor both (a) the current state of the plot cycler and (b) the
-        # specified kwargs on all the lines we will draw, overriding when
-        # relevant with the data semantics. Note that we won't cycle
-        # internally; in other words, if ``hue`` is not used, all elements will
-        # have the same color, but they will have the color that you would have
-        # gotten from the corresponding matplotlib function, and calling the
-        # function will advance the axes property cycle.
-
-        kws.setdefault("markeredgewidth", kws.pop("mew", 0.75))
-        kws.setdefault("markeredgecolor", kws.pop("mec", "w"))
-
-        # Set default error kwargs
-        err_kws = self.err_kws.copy()
-        if self.err_style == "band":
-            err_kws.setdefault("alpha", 0.2)
-        elif self.err_style == "bars":
-            pass
-        elif self.err_style is not None:
-            err = "`err_style` must be 'band' or 'bars', not {}"
-            raise ValueError(err.format(self.err_style))
-
-        # Initialize the aggregation object
-        agg = _sns._statistics.EstimateAggregator(
-            self.estimator,
-            self.errorbar,
-            n_boot=self.n_boot,
-            seed=self.seed,
-        )
-
-        # TODO abstract variable to aggregate over here-ish. Better name?
-        agg_var = "y"
-        grouper = ["x"]
-
-        # TODO How to handle NA? We don't want NA to propagate through to the
-        # estimate/CI when some values are present, but we would also like
-        # matplotlib to show "gaps" in the line when all values are missing.
-        # This is straightforward absent aggregation, but complicated with it.
-        # If we want to use nas, we need to conditionalize dropna in iter_data.
-
-        # Loop over the semantic subsets and add to the plot
-        grouping_vars = "hue"  # , "size", "style"
-        for sub_vars, sub_data in self.iter_data(grouping_vars, from_comp_data=True):
-
-            if self.sort:
-                sort_vars = ["units", "x", "y"]
-                sort_cols = [var for var in sort_vars if var in self.variables]
-                sub_data = sub_data.sort_values(sort_cols)
-
-            if self.estimator is not None:
-                if "units" in self.variables:
-                    # TODO eventually relax this constraint
-                    err = "estimator must be None when specifying units"
-                    raise ValueError(err)
-                grouped = sub_data.groupby(grouper, sort=self.sort)
-                # Could pass as_index=False instead of reset_index,
-                # but that fails on a corner case with older pandas.
-                sub_data = grouped.apply(agg, agg_var).reset_index()
-
-            # TODO this is pretty ad hoc ; see GH2409
-            for var in "xy":
-                if self._log_scaled(var):
-                    for col in sub_data.filter(regex=f"^{var}"):
-                        sub_data[col] = np.power(10, sub_data[col])
-
-            # --- Draw the main line(s)
-            if "hue" in sub_vars:
-                sub_data["hue"] = sub_vars["hue"]
-            plotting_kwargs = {
-                "data_frame": sub_data.rename(columns=self.variables),
-                "x": self.variables["x"],
-                "y": self.variables["y"],
-            }
-            if "hue" in sub_vars:
-                plotting_kwargs["color"] = self.variables["hue"]
-                line_color = _convert_color(self._hue_map(sub_vars["hue"]), 1)
-                fill_color = _convert_color(self._hue_map(sub_vars["hue"]), 0.2)
-            else:
-                line_color = _get_colors(1, 1)[0]
-                fill_color = _get_colors(1, 0.2)[0]
-            plotting_kwargs["color_discrete_sequence"] = [line_color]
-
-            fig = px.line(**plotting_kwargs)
-
-            draw_ci = (
-                (self.estimator is not None)
-                and (self.errorbar is not None)
-                and (not sub_data["ymax"].isna().all())
-            )
-            if draw_ci:
-                fig.data[0].error_y = dict(
-                    type="data",
-                    array=sub_data["ymax"] - sub_data["y"],
-                    color="rgba(0, 0, 0, 0)",
-                )
-            ax(fig)
-            ax.set_xlabel(self.variables["x"])
-            ax.set_ylabel(self.variables["y"])
-
-            # --- Draw the confidence intervals
-
-            if draw_ci:
-
-                #     # TODO handling of orientation will need to happen here
-
-                ax.fill_between(
-                    sub_data["x"],
-                    sub_data["ymin"],
-                    sub_data["ymax"],
-                    rgba=fill_color,
-                    legend=False,
-                    legendgroup=sub_vars.get("hue", ""),
-                    hoverinfo="skip",
-                )
-
-                if self.err_style == "bars":
-                    raise NotImplementedError("Can't use bars are err_style")
-
-        if "hue" in sub_vars:
-            ax.figure.update_layout(legend_title=self.variables["hue"])
-
-
-def lineplot(
-    *,
-    x=None,
-    y=None,
-    hue=None,
-    size=None,
-    style=None,
-    data=None,
-    palette=None,
-    hue_order=None,
-    hue_norm=None,
-    sizes=None,
-    size_order=None,
-    size_norm=None,
-    dashes=True,
-    markers=None,
-    style_order=None,
-    units=None,
-    estimator="mean",
-    n_boot=1000,
-    seed=None,
-    sort=True,
-    err_style="band",
-    err_kws=None,
-    legend="auto",
-    errorbar=("ci", 95),
-    ax=None,
-    **kwargs,
-):
-
-    variables = LinePlotter.get_semantics(locals())
-    p = LinePlotter(
-        data=data,
-        variables=variables,
-        estimator=estimator,
-        n_boot=n_boot,
-        seed=seed,
-        sort=sort,
-        err_style=err_style,
-        err_kws=err_kws,
-        legend=legend,
-        errorbar=errorbar,
-    )
-
-    if ax is None:
-        _, ax = subplots()
-
-    if not p.has_xy_data:
-        return ax.figure
-
-    p.plot(ax, kwargs)
-    return ax.figure
 
 
 class DistributionPlotter(_sns.distributions._DistributionPlotter):
@@ -1286,7 +1187,7 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
                     _convert_color(mpl.colors.to_rgb(kws["color"]), kws["alpha"])
                 ],
             )
-            fig.data[0].legendgroup = self.label
+            fig.data[0].legendgroup = str(self.label)
             fig.data[0].name = self.label
             fig.data[0].showlegend=True
             ax(fig)
@@ -1334,7 +1235,7 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
                 color="rgba(0, 0, 0, 0)",
             )
         assert(len(fig.data) == 1)
-        legendgroup = self.label
+        legendgroup = str(self.label)
         fig.data[0].legendgroup = legendgroup
         ax(fig)
         ax.figure.update_layout(fig.layout)
@@ -1423,14 +1324,8 @@ def regplot(
     return ax.figure
 
 
-def distplot(*args, **kwargs):
-    raise NotImplementedError("distplot not available, use histplot instead")
-
-
 def displot(*args, **kwargs):
-    raise NotImplementedError("displot not available yet, use histplot and/or kdeplot")
-
-
+    raise NotImplementedError("displot not available, use histplot instead")
 
 
 def histplot(
@@ -2036,8 +1931,28 @@ def lmplot(
     facets.set_axis_labels(x, y)
 
     # Add a legend
-    breakpoint()
     if legend and (hue is not None) and (hue not in [col, row]):
         facets._figure.layout.legend.title = hue
     facets.update_hover({'x': 'x', 'y': 'y'}, {'x': x, 'y': y})
     return facets._figure
+
+
+def lineplot(**kwargs):
+    if kwargs.get('ax') is None:
+        _, ax = subplots() 
+    else:
+        ax = kwargs.pop('ax')
+    fig = _sns.lineplot(ax=ax, **kwargs).figure
+    legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup}
+    if not legend_map:
+        fig.update_layout(showlegend=False)
+    for _data in fig.data:
+        if _data.marker.color is not None:
+            _color = _data.marker.color
+        elif _data.fillcolor is not None:
+            _color = _data.fillcolor
+        else:
+            continue
+        _data.legendgroup = legend_map.get(','.join(_color.split(',')[:3]))
+        _data.name = legend_map.get(','.join(_color.split(',')[:3]))
+    return fig

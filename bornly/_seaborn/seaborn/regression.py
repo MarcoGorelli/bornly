@@ -193,7 +193,10 @@ class _RegressionPlotter(_LinearPlotter):
             if self.truncate:
                 x_min, x_max = self.x_range
             else:
-                raise NotImplementedError('truncate not supported yet')
+                if ax is None:
+                    x_min, x_max = x_range
+                else:
+                    x_min, x_max = ax.get_xlim()
             grid = np.linspace(x_min, x_max, 100)
         ci = self.ci
 
