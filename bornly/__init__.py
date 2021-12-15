@@ -1206,8 +1206,8 @@ def histplot(
     **kwargs,
 ):
 
-    p = DistributionPlotter(
-        data=data, variables=DistributionPlotter.get_semantics(locals())
+    p = _sns.distributions._DistributionPlotter(
+        data=data, variables=_sns.distributions._DistributionPlotter.get_semantics(locals())
     )
 
     p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
@@ -1661,13 +1661,6 @@ def relplot(
         _dedupe_legend(g.figure)
         if p.legend_data:
             g._figure.layout.legend.title = p.legend_title
-        # if p.legend_data:
-        #     g.add_legend(
-        #         legend_data=p.legend_data,
-        #         label_order=p.legend_order,
-        #         title=p.legend_title,
-        #         adjust_subtitles=True,
-        #     )
 
     # Rename the columns of the FacetGrid's `data` attribute
     # to match the original column names
