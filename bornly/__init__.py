@@ -29,6 +29,15 @@ def _convert_color(color, alpha):
         return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
     return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
 
+def _dedupe_legend(fig):
+    condition = lambda i: i.showlegend is not False and len(i.x)>0
+    in_legend = {i.name for i in fig.data if condition(i)}
+    counts = {key: 0 for key in in_legend}
+    for data_ in fig.data:
+        if not condition(data_):
+            continue
+        counts[data_.name] += 1
+        data_.showlegend = counts[data_.name] == 1
 class Foo:
     update_units = lambda *_: None
     convert_units = lambda x, y: y
@@ -54,6 +63,16 @@ class Line:
             self.scatter.line.update(dash=', '.join([str(i) for i in dashes]))
     def set_linewidth(self, width):
         pass
+
+    def set_marker(self, marker):
+        if marker == 'o':
+            symbol = 'circle'
+        elif marker == 'X':
+            symbol = 'x'
+        else:
+            breakpoint()
+        self.scatter.marker.symbol = symbol
+    
     @property
     def sticky_edges(self):
         class Foo:
@@ -146,7 +165,22 @@ class Ax:
         else:
             color = _get_colors(1, 1)[0]
 
-        fig = go.Scatter(x=x, y=y, mode='lines', legendgroup=kwargs.get('label', None), name=kwargs.get('label', None), marker=dict(color=color))
+        if kwargs.get('dashes') is not None:
+            dash = ', '.join([str(i) for i in kwargs.get('dashes')])
+            if dash == '':
+                dash = None
+        else:
+            dash = None
+
+        fig = go.Scatter(
+            x=x,
+            y=y,
+            mode='lines',
+            legendgroup=kwargs.get('label', None),
+            name=kwargs.get('label', None),
+            marker=dict(color=color),
+            line=dict(dash=dash)
+        )
         self.figure.add_trace(fig, row=self._row+1, col=self._col+1)
         return Line(self.figure.data[-1], self),
     
@@ -1486,7 +1520,7 @@ def relplot(
 
     elif kind == "line":
 
-        plotter = LinePlotter
+        plotter = _sns.relational._LinePlotter
         func = lineplot
         dashes = True if dashes is None else dashes
 
@@ -1624,14 +1658,9 @@ def relplot(
         p.plot_data = plot_data
         p.add_legend_data(g.axes.flat[0])
 
-        in_legend = {i.name for i in g.figure.data if i.showlegend}
-        counts = {key: 0 for key in in_legend}
-        for data_ in g.figure.data:
-            if not data_.showlegend:
-                continue
-            counts[data_.name] += 1
-            if counts[data_.name] > 1:
-                data_.showlegend = False
+        _dedupe_legend(g.figure)
+        if p.legend_data:
+            g._figure.layout.legend.title = p.legend_title
         # if p.legend_data:
         #     g.add_legend(
         #         legend_data=p.legend_data,
@@ -1740,16 +1769,19 @@ def lineplot(**kwargs):
     else:
         ax = kwargs.pop('ax')
 
-    if 'style' in kwargs:
-        raise NotImplementedError('size isn\'t supported yet. Use relplot instead?')
     if 'size' in kwargs:
         raise NotImplementedError('size isn\'t supported yet. Use relplot instead?')
     if kwargs.get('err_style') == 'bars':
         raise NotImplementedError('err_style = "bars" is not supported yet, use "bands" instead.')
+    if kwargs.get('dashes') is False:
+        raise NotImplementedError('passing dashes=False is not supported yet')
+    if kwargs.get('markers') is False:
+        raise NotImplementedError('passing markers=False is not supported yet')
         
     fig = _sns.lineplot(ax=ax, **kwargs).figure
-    legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup}
-    if not legend_map:
+    color_legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup and i.marker.color is not None}
+    dash_legend_map = {i.line.dash: i.legendgroup for i in fig.data if i.legendgroup}
+    if not color_legend_map and not dash_legend_map:
         fig.update_layout(showlegend=False)
 
     x_label = ax.get_xlabel()
@@ -1761,11 +1793,32 @@ def lineplot(**kwargs):
         elif _data.fillcolor is not None:
             _color = _data.fillcolor
         else:
+            _color is None
+        if _data.line.dash is not None:
+            _dash = _data.line.dash
+        else:
+            _dash = None
+
+
+        legendgroup = set()
+
+        if _color is not None:
+            name = color_legend_map.get(','.join(_color.split(',')[:3]))
+            if name is not None:
+                legendgroup.add(name)
+
+        dashname = dash_legend_map.get(_dash)
+        if 'style' in kwargs and dashname is not None:
+            legendgroup.add(dashname)
+
+        if not legendgroup:
             continue
-        _data.legendgroup = legend_map.get(','.join(_color.split(',')[:3]))
-        _data.name = legend_map.get(','.join(_color.split(',')[:3]))
+        _data.legendgroup = ', '.join(legendgroup)
+        _data.name = ', '.join(legendgroup)
+
         if not _data.hoverinfo == 'skip':
             _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
+    _dedupe_legend(fig)
 
     return fig
 
