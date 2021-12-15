@@ -21,27 +21,30 @@ from bornly._seaborn.seaborn import (
 def _cartesian(x, y):
     return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
-def _add_alpha_to_rgb(rgb, alpha=1):
-    breakpoint()
-    return (rgb[:-2] + str(alpha) + ')').replace('rgb(', 'rgba(')
-
 def _deconvert_rgba(rgba):
     return tuple([float(i)/255 for i in rgba.strip('rgba()').split(',')[:3]])
+
+def _convert_color(color, alpha):
+    if alpha is not None:
+        return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
+    return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
 
 class Foo:
     update_units = lambda *_: None
     convert_units = lambda x, y: y
     get_scale = lambda *_: None
+    grid = lambda x, y: None
 
 class Line:
-    def __init__(self, scatter):
+    def __init__(self, scatter, ax=None):
         self.scatter = scatter
+        self.ax = ax
     def set_color(self, color):
         self.scatter.marker.update(color=_convert_color(color, 1))
     def get_color(self):
         return _deconvert_rgba(self.scatter.marker.color)
     def get_alpha(self):
-        pass  # todo
+        return float(self.scatter.marker.color.strip('rgba()').split(',')[-1])
     def get_solid_capstyle(self):
         pass  # huh
     def remove(self):
@@ -49,12 +52,29 @@ class Line:
     def set_dashes(self, dashes):
         if dashes:
             self.scatter.line.update(dash=', '.join([str(i) for i in dashes]))
+    def set_linewidth(self, width):
+        pass
     @property
     def sticky_edges(self):
         class Foo:
             x = []
             y = []
         return Foo()
+
+    def set_facecolors(self, facecolors):
+        facecolors_series = pd.Series(facecolors)
+        self.ax.figure.data = self.ax.figure.data[:-1]
+        for facecolor in facecolors_series.unique():
+            mask = facecolors_series == facecolor
+            self.ax(go.Figure(go.Scatter(x=self.scatter.x[mask], y=self.scatter.y[mask], mode='markers', marker=dict(color=_convert_color(facecolor, 1)))))
+        pass
+
+    def get_sizes(self):
+        return [1]
+    def set_sizes(self, sizes):
+        pass
+    def set_linewidths(self, *args, **kwargs):
+        return None
     
 class Legend:
     def __init__(self, legend):
@@ -66,6 +86,19 @@ class Legend:
                 return []
         return [Foo()]
     
+def _parse_color(color):
+    if isinstance(color, str) and color.startswith('rgba('):
+        pass
+    elif isinstance(color, tuple) and len(color) == 4:
+        color = _convert_color(color[:3], color[3])
+    elif isinstance(color, tuple) and len(color) == 3:
+        color = _convert_color(color, 1)
+    elif isinstance(color, str):
+        try:
+            color = _convert_color(mpl.colors.to_rgb(color), 1)
+        except ValueError:
+            color = _convert_color((mpl.cm.hot(float(color))), 1)
+    return color
 class Ax:
     def __init__(self, func, *, nrows, ncols):
         self._func = func
@@ -73,6 +106,16 @@ class Ax:
         self._col = func.keywords["col"]
         self._nrows = nrows
         self._ncols = ncols
+
+    def barh(self, x, y, width, **kwargs):
+        pass
+    def bar(self, x, y, width, **kwargs):
+        pass
+
+    def set_xticks(self, xticks):
+        pass
+    def set_xticklabels(self, xticklabels):
+        pass
 
     @property
     def yaxis(self):
@@ -87,8 +130,6 @@ class Ax:
         return self.figure.layout.yaxis.title.text
     def get_legend_handles_labels(self):
         return self.figure.layout.legend, None
-    def set_color(self, color):
-        self.figure.data[-1].marker.update(color=color)
     def get_xticklabels(self):
         return []  # todo
     def get_yticklabels(self):
@@ -101,19 +142,13 @@ class Ax:
     def plot(self, x, y, **kwargs):
         if kwargs.get('color', None) is not None:
             color = kwargs.get('color', None)
-            if isinstance(color, str) and color.startswith('rgba('):
-                pass
-            elif isinstance(color, tuple) and len(color) == 4:
-                color = _convert_color(color[:3], color[3])
-            elif isinstance(color, tuple) and len(color) == 3:
-                color = _convert_color(color, 1)
-            else:
-                color = _convert_color(matplotlib.colors.ColorConverter.colors[color], 1)
+            color = _parse_color(color)
         else:
             color = _get_colors(1, 1)[0]
+
         fig = go.Scatter(x=x, y=y, mode='lines', legendgroup=kwargs.get('label', None), name=kwargs.get('label', None), marker=dict(color=color))
         self.figure.add_trace(fig, row=self._row+1, col=self._col+1)
-        return Line(self.figure.data[-1]),
+        return Line(self.figure.data[-1], self),
     
     def add_legend(self, legend_data, **kwargs):
         for key, val in legend_data.items():
@@ -151,8 +186,9 @@ class Ax:
     def set_ylim(self, ylim):
         self.figure.update_yaxes(range=ylim, row=self._row + 1, col=self._col + 1)
 
-    def set_xlim(self, xlim):
-        self.figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
+    def set_xlim(self, xlim, *args, **kwargs):
+        if isinstance(xlim, tuple):
+            self.figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
 
     def set(self, **kwargs):
         for key, val in kwargs.items():
@@ -234,10 +270,6 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, wrap=True, **kwarg
     return fig, np.asarray(ax)
 
 
-def _convert_color(color, alpha):
-    if alpha is not None:
-        return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
-    return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
 
 
 def _get_colors(n, alpha, palette=None):
@@ -280,6 +312,8 @@ class ScatterPlotter(_sns.relational._ScatterPlotter):
                 plotting_kwargs["color_discrete_sequence"] = _get_colors(
                     -1, 1, _sns.color_palette(self.variables["palette"])
                 )
+        elif 'color' in kws:
+            plotting_kwargs["color_discrete_sequence"] = [_parse_color(kws['color'])]
         else:
             plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
         if "hue" in self.variables:
@@ -365,6 +399,7 @@ def scatterplot(
 
 
 
+# also not one to be overridden easily...
 class HeatMapper(_sns.matrix._HeatMapper):
     def plot(self, ax, cax, kws):
         data_ = self.data.copy()
@@ -617,6 +652,7 @@ def heatmap(
     return ax.figure
 
 
+# just redirect to plotly equivalent
 def pairplot(
     data,
     *,
@@ -1577,7 +1613,6 @@ def relplot(
     g.map_dataframe(func, **plot_kws)
 
     # Label the axes
-    breakpoint()
     g.set_axis_labels(variables.get("x", None), variables.get("y", None))
 
     g.update_hover(plot_variables, variables)
@@ -1704,6 +1739,14 @@ def lineplot(**kwargs):
         _, ax = subplots() 
     else:
         ax = kwargs.pop('ax')
+
+    if 'style' in kwargs:
+        raise NotImplementedError('size isn\'t supported yet. Use relplot instead?')
+    if 'size' in kwargs:
+        raise NotImplementedError('size isn\'t supported yet. Use relplot instead?')
+    if kwargs.get('err_style') == 'bars':
+        raise NotImplementedError('err_style = "bars" is not supported yet, use "bands" instead.')
+        
     fig = _sns.lineplot(ax=ax, **kwargs).figure
     legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup}
     if not legend_map:
@@ -1723,7 +1766,7 @@ def lineplot(**kwargs):
         _data.name = legend_map.get(','.join(_color.split(',')[:3]))
         if not _data.hoverinfo == 'skip':
             _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
-    fig.layout.xaxis.title.text
+
     return fig
 
 def kdeplot(**kwargs):
