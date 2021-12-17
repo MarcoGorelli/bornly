@@ -9,6 +9,9 @@ fmri = sns.load_dataset("fmri")
 import bornly as bns
 
 data = bns.load_dataset('fmri')
+data = data.reset_index()
+data['index'].iloc[1] = 0
+data = data.set_index('index')
 bns.lineplot(data=data, 
                     x='timepoint',
                     y='signal',
