@@ -241,7 +241,6 @@ class Ax:
         y2,
         **kwargs,
     ):
-        breakpoint()
         rgba = kwargs.get('rgba')
         if rgba is None:
             rgb = kwargs.get('color', None)
