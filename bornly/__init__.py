@@ -241,6 +241,7 @@ class Ax:
         y2,
         **kwargs,
     ):
+        breakpoint()
         rgba = kwargs.get('rgba')
         if rgba is None:
             rgb = kwargs.get('color', None)
@@ -1789,7 +1790,7 @@ def lineplot(**kwargs):
 
     x_label = ax.get_xlabel()
     y_label = ax.get_ylabel()
-        
+
     for _data in fig.data:
         if _data.marker.color is not None:
             _color = _data.marker.color

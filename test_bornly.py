@@ -9,11 +9,10 @@ fmri = sns.load_dataset("fmri")
 import bornly as bns
 
 data = bns.load_dataset('fmri')
-bns.regplot(data=data, 
+bns.lineplot(data=data, 
                     x='timepoint',
                     y='signal',
-                    scatter=False,
-                    color='red')
+                    hue='event')
 
 # fig = bns.lineplot(x=fmri['timepoint'], y=fmri['signal'], style=fmri['region'])
 # fig
