@@ -6,13 +6,24 @@ tips = sns.load_dataset("tips")
 fmri = sns.load_dataset("fmri")
 
 
+import bornly as bns
+
+data = bns.load_dataset('fmri')
+data = data.reset_index()
+data['index'].iloc[1] = 0
+data = data.set_index('index')
+bns.lineplot(data=data, 
+                    x='timepoint',
+                    y='signal',
+                    hue='event')
+
 # fig = bns.lineplot(x=fmri['timepoint'], y=fmri['signal'], style=fmri['region'])
 # fig
-bns.lineplot(
-    data=fmri,
-    x="timepoint", y="signal", hue="event", style="event",
-    dashes=True, markers=True,
-)
+# bns.lineplot(
+#     data=fmri,
+#     x="timepoint", y="signal", hue="event", style="event",
+#     dashes=True, markers=True,
+# )
 # bns.lineplot(data=fmri, x="timepoint", y="signal", hue="event")
 # bns.relplot(data=tips, x="total_bill", y="tip", hue="day", col='time')
 # bns.relplot(data=fmri, x="timepoint", y="signal", hue="event", row='region', kind='line')
@@ -25,13 +36,13 @@ bns.lineplot(
 # bns.relplot(data=flights_wide, kind="line")
 # bns.lmplot(x="total_bill", y="tip", hue="smoker", data=tips)
 
-fig, ax = bns.subplots()
-# fig = bns.scatterplot(x=fmri['timepoint'], y=fmri['signal'], color='orange', ax=ax)
-bns.lineplot(
-    data=fmri.query("region == 'frontal'"),
-    x="timepoint", y="signal", hue="event", units="subject",
-    estimator=None, lw=1,
-)
+# fig, ax = bns.subplots()
+# # fig = bns.scatterplot(x=fmri['timepoint'], y=fmri['signal'], color='orange', ax=ax)
+# bns.lineplot(
+#     data=fmri.query("region == 'frontal'"),
+#     x="timepoint", y="signal", hue=fmri['event'].astype('category').cat.codes, units="subject",
+#     estimator=None, lw=1,
+# )
 # bns.lineplot(data=fmri, x='timepoint', y='signal', color='orange', ax=ax)
 # fig = sns.scatterplot(data=fmri, x='timepoint', y='signal', hue='event', ax=ax)
 # fig = sns.barplot(data=fmri, x='timepoint', y='signal', hue='event', ax=ax)

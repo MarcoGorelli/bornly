@@ -70,7 +70,7 @@ class Line:
         elif marker == 'X':
             symbol = 'x'
         else:
-            breakpoint()
+            raise ValueError(f'Unsupported marker "{marker}", please report issue')
         self.scatter.marker.symbol = symbol
     
     @property
@@ -154,8 +154,9 @@ class Ax:
     def get_yticklabels(self):
         return []  # todo
 
-    def legend(self, title):
-        self.figure.layout.legend.title = title
+    def legend(self, title=None):
+        if title is not None:
+            self.figure.layout.legend.title = title
         return Legend(self.figure.layout.legend)
     
     def plot(self, x, y, **kwargs):
@@ -172,12 +173,17 @@ class Ax:
         else:
             dash = None
 
+        if kwargs.get('label') is not None:
+            label = str(kwargs.get('label'))
+        else:
+            label = None
+
         fig = go.Scatter(
             x=x,
             y=y,
             mode='lines',
-            legendgroup=kwargs.get('label', None),
-            name=kwargs.get('label', None),
+            legendgroup=label,
+            name=label,
             marker=dict(color=color),
             line=dict(dash=dash)
         )
@@ -235,19 +241,20 @@ class Ax:
         y2,
         **kwargs,
     ):
-        rgb = kwargs.get('color', None)
-        alpha = kwargs.get('alpha', None)
-        if rgb is not None:
-            rgba = _convert_color(rgb, alpha)
-        else:
-            rgba = _get_colors(1, 1)[0]
+        rgba = kwargs.get('rgba')
+        if rgba is None:
+            rgb = kwargs.get('color', None)
+            alpha = kwargs.get('alpha', None)
+            if rgb is not None:
+                rgba = _convert_color(rgb, alpha)
+            else:
+                rgba = _get_colors(1, alpha)[0]
         self.figure.add_trace(
             go.Scatter(
                 x=x,
                 y=y2,
                 line=dict(color="rgba(0,0,0,0)"),
                 showlegend=False,
-                # legendgroup=legendgroup,
                 hoverinfo='skip',
             ),
             row=self._row+1,
@@ -262,8 +269,6 @@ class Ax:
                 fill="tonexty",
                 fillcolor=rgba,
                 showlegend=False,
-                # name=label,
-                # legendgroup=legendgroup,
                 hoverinfo='skip',
             ),
             row=self._row+1,
@@ -1782,7 +1787,7 @@ def lineplot(**kwargs):
 
     x_label = ax.get_xlabel()
     y_label = ax.get_ylabel()
-        
+
     for _data in fig.data:
         if _data.marker.color is not None:
             _color = _data.marker.color
