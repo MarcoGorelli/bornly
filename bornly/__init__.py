@@ -239,6 +239,8 @@ class Ax:
         alpha = kwargs.get('alpha', None)
         if rgb is not None:
             rgba = _convert_color(rgb, alpha)
+        else:
+            rgba = _get_colors(1, 1)[0]
         self.figure.add_trace(
             go.Scatter(
                 x=x,
@@ -267,6 +269,7 @@ class Ax:
             row=self._row+1,
             col=self._col+1,
         )
+        return self.figure
 
 
 def _add_to_fig(subplot, figure, row, col):
