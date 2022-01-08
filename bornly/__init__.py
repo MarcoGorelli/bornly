@@ -1773,7 +1773,7 @@ def lineplot(**kwargs):
     if 'size' in kwargs:
         raise NotImplementedError('size isn\'t supported yet. Use relplot instead?')
     if kwargs.get('err_style') == 'bars':
-        raise NotImplementedError('err_style = "bars" is not supported yet, use "bands" instead.')
+        raise NotImplementedError('err_style = "bars" is not supported yet, use "band" instead.')
     if kwargs.get('dashes') is False:
         raise NotImplementedError('passing dashes=False is not supported yet')
     if kwargs.get('markers') is False:
@@ -1812,16 +1812,18 @@ def lineplot(**kwargs):
         if 'style' in kwargs and dashname is not None:
             legendgroup.add(dashname)
 
-        if not legendgroup:
-            continue
-        _data.legendgroup = ', '.join(legendgroup)
-        _data.name = ', '.join(legendgroup)
+        if legendgroup and not _data.hoverinfo == 'skip':
+            _data.legendgroup = ', '.join(legendgroup)
+            _data.name = ', '.join(legendgroup)
 
         if not _data.hoverinfo == 'skip':
             _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
-    _dedupe_legend(fig)
+
+
+    # _dedupe_legend(fig)
 
     return fig
+
 
 def kdeplot(**kwargs):
     if kwargs.get('ax') is None:

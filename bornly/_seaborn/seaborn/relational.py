@@ -479,11 +479,12 @@ class _LinePlotter(_RelationalPlotter):
             if self.estimator is not None and self.errorbar is not None:
 
                 # TODO handling of orientation will need to happen here
-                ax.figure.data[-1].error_y = dict(
-                    type="data",
-                    array=sub_data['ymax'] - sub_data['y'],
-                    color="rgba(0, 0, 0, 0)",
-                )
+                if not sub_data['ymax'].isna().all():
+                    ax.figure.data[-1].error_y = dict(
+                        type="data",
+                        array=sub_data['ymax'] - sub_data['y'],
+                        color="rgba(0, 0, 0, 0)",
+                    )
 
                 if self.err_style == "band":
 
