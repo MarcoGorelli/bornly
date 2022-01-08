@@ -1990,7 +1990,7 @@ def lineplot(
                 legendgroup.add(name)
 
         dashname = dash_legend_map.get(_dash)
-        if "style" in kwargs and dashname is not None:
+        if style is not None and dashname is not None:
             legendgroup.add(dashname)
 
         if legendgroup and not _data.hoverinfo == "skip":
