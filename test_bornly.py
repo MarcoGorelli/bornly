@@ -14,4 +14,7 @@ import numpy as np
 x = np.linspace(-5, 5, 100)
 y = np.sin(x)
 import bornly as bns
-bns.scatterplot(x=x, y=y)
+fig, ax = bns.subplots()
+fmri = bns.load_dataset("fmri")
+fig = bns.lineplot(data=fmri, x='timepoint', y='signal', hue='event')
+fig

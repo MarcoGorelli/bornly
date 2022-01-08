@@ -23,13 +23,15 @@ __version__ = "0.2.4"
 
 def _validate_pandas(*args):
     for data in args:
-        if isinstance(data, (pd.DataFrame, pd.Series)):
-            if data.index.has_duplicates:
-                raise ValueError(
-                    "Passed data with duplicate index. Please de-duplicate "
-                    "your index before passing it to bornly, "
-                    "e.g. df.reset_index(drop=True)"
-                ) from None
+        if (
+            isinstance(data, (pd.DataFrame, pd.Series))
+            and data.index.has_duplicates
+        ):
+            raise ValueError(
+                "Passed data with duplicate index. Please de-duplicate "
+                "your index before passing it to bornly, "
+                "e.g. df.reset_index(drop=True)"
+            ) from None
 
 
 def _cartesian(x, y):
@@ -44,18 +46,6 @@ def _convert_color(color, alpha=1):
     if alpha is None:
         alpha = 1
     return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
-    # return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
-
-
-def _dedupe_legend(fig):
-    condition = lambda i: i.showlegend is not False and len(i.x) > 0
-    in_legend = {i.name for i in fig.data if condition(i)}
-    counts = {key: 0 for key in in_legend}
-    for data_ in fig.data:
-        if not condition(data_):
-            continue
-        counts[data_.name] += 1
-        data_.showlegend = counts[data_.name] == 1
 
 
 class Foo:
@@ -80,9 +70,11 @@ class Line:
         return float(self.scatter.marker.color.strip("rgba()").split(",")[-1])
 
     def get_solid_capstyle(self):
+        # currently unused anyway
         pass  # huh
 
     def remove(self):
+        # what's this for?
         pass
 
     def set_dashes(self, dashes):
@@ -90,6 +82,7 @@ class Line:
             self.scatter.line.update(dash=", ".join([str(i) for i in dashes]))
 
     def set_linewidth(self, width):
+        # what's this for?
         pass
 
     def set_marker(self, marker):
@@ -106,7 +99,6 @@ class Line:
         class Foo:
             x = []
             y = []
-
         return Foo()
 
     def set_facecolors(self, facecolors):
@@ -385,64 +377,6 @@ def _get_colors(n, alpha, palette=None):
     return [_convert_color(color, alpha) for color in colors]
 
 
-# not easy to override `ax.scatter`, so got to do it
-# this way, unfortunately
-class ScatterPlotter(_sns.relational._ScatterPlotter):
-    @property
-    def reverse_variables(self):
-        return {v: k for k, v in self.variables.items()}
-
-    def plot(self, ax, kws):
-
-        # --- Determine the visual attributes of the plot
-
-        data = self.plot_data.dropna().rename(columns=self.variables)
-        if data.empty:
-            return
-
-        # Draw the scatter plot
-        plotting_kwargs = {
-            "data_frame": data,
-            "x": self.variables["x"],
-            "y": self.variables["y"],
-        }
-        if "palette" in self.variables:
-            if isinstance(self.variables["palette"], dict):
-                plotting_kwargs["color_discrete_map"] = {
-                    key: _convert_color(_sns.color_palette([val])[0], 1)
-                    for key, val in self.variables["palette"].items()
-                }
-            else:
-                plotting_kwargs["color_discrete_sequence"] = _get_colors(
-                    -1, 1, _sns.color_palette(self.variables["palette"])
-                )
-        elif "color" in kws:
-            plotting_kwargs["color_discrete_sequence"] = [_parse_color(kws["color"])]
-        else:
-            plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
-        if "hue" in self.variables:
-            plotting_kwargs["color"] = self.variables["hue"]
-        if "size" in self.variables:
-            plotting_kwargs["size"] = self.variables["size"]
-        if "sizes" in self.variables:
-            plotting_kwargs["size_max"] = self.variables["sizes"][1]
-
-        if plotting_kwargs.get('x') is None:
-            raise NotImplementedError(
-                '`x` cannot be None '
-                '(or at least, not yet)'
-                ) from None
-        fig = px.scatter(**plotting_kwargs)
-        ax.set_xlabel(self.variables["x"])
-        ax.set_ylabel(self.variables["y"])
-
-        if not self.legend:
-            for i in fig.data:
-                i.showlegend = False
-
-        ax(fig)
-
-
 def scatterplot(
     *,
     x=None,
@@ -474,8 +408,8 @@ def scatterplot(
 ):
     _validate_pandas(x, y, data, hue, size, style)
 
-    variables = ScatterPlotter.get_semantics(locals())
-    p = ScatterPlotter(
+    variables = _sns.relational._ScatterPlotter.get_semantics(locals())
+    p = _sns.relational._ScatterPlotter(
         data=data,
         variables=variables,
         x_bins=x_bins,

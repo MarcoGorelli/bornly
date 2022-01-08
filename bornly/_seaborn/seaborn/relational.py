@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import plotly.express as px
 
 from ._core import (
     VectorPlotter,
@@ -545,67 +546,56 @@ class _ScatterPlotter(_RelationalPlotter):
         self.legend = legend
 
     def plot(self, ax, kws):
+        from bornly import _convert_color, _get_colors, _parse_color
+        from seaborn import color_palette
 
         # --- Determine the visual attributes of the plot
 
-        data = self.plot_data.dropna()
+        data = self.plot_data.dropna().rename(columns=self.variables)
         if data.empty:
             return
 
-        # Define the vectors of x and y positions
-        empty = np.full(len(data), np.nan)
-        x = data.get("x", empty)
-        y = data.get("y", empty)
-
-        if "style" in self.variables:
-            # Use a representative marker so scatter sets the edgecolor
-            # properly for line art markers. We currently enforce either
-            # all or none line art so this works.
-            example_level = self._style_map.levels[0]
-            example_marker = self._style_map(example_level, "marker")
-            kws.setdefault("marker", example_marker)
-
-        # Conditionally set the marker edgecolor based on whether the marker is "filled"
-        # See https://github.com/matplotlib/matplotlib/issues/17849 for context
-        m = kws.get("marker", mpl.rcParams.get("marker", "o"))
-        if not isinstance(m, mpl.markers.MarkerStyle):
-            m = mpl.markers.MarkerStyle(m)
-        if m.is_filled():
-            kws.setdefault("edgecolor", "w")
-
-        # TODO this makes it impossible to vary alpha with hue which might
-        # otherwise be useful? Should we just pass None?
-        kws["alpha"] = 1 if self.alpha == "auto" else self.alpha
-
         # Draw the scatter plot
-        points = ax.scatter(x=x, y=y, **kws)
-
-        # Apply the mapping from semantic variables to artist attributes
-
+        plotting_kwargs = {
+            "data_frame": data,
+            "x": self.variables["x"],
+            "y": self.variables["y"],
+        }
+        if "palette" in self.variables:
+            if isinstance(self.variables["palette"], dict):
+                plotting_kwargs["color_discrete_map"] = {
+                    key: _convert_color(color_palette([val])[0], 1)
+                    for key, val in self.variables["palette"].items()
+                }
+            else:
+                plotting_kwargs["color_discrete_sequence"] = _get_colors(
+                    -1, 1, color_palette(self.variables["palette"])
+                )
+        elif "color" in kws:
+            plotting_kwargs["color_discrete_sequence"] = [_parse_color(kws["color"])]
+        else:
+            plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
         if "hue" in self.variables:
-            points.set_facecolors(self._hue_map(data["hue"]))
-
+            plotting_kwargs["color"] = self.variables["hue"]
         if "size" in self.variables:
-            points.set_sizes(self._size_map(data["size"]))
+            plotting_kwargs["size"] = self.variables["size"]
+        if "sizes" in self.variables:
+            plotting_kwargs["size_max"] = self.variables["sizes"][1]
 
-        if "style" in self.variables:
-            p = [self._style_map(val, "path") for val in data["style"]]
-            points.set_paths(p)
+        if plotting_kwargs.get('x') is None:
+            raise NotImplementedError(
+                '`x` cannot be None '
+                '(or at least, not yet)'
+                ) from None
+        fig = px.scatter(**plotting_kwargs)
+        ax.set_xlabel(self.variables["x"])
+        ax.set_ylabel(self.variables["y"])
 
-        # Apply dependent default attributes
+        if not self.legend:
+            for i in fig.data:
+                i.showlegend = False
 
-        if "linewidth" not in kws:
-            sizes = points.get_sizes()
-            points.set_linewidths(.08 * np.sqrt(np.percentile(sizes, 10)))
-
-        # Finalize the axes details
-        self._add_axis_labels(ax)
-        if self.legend:
-            self.add_legend_data(ax)
-            handles, _ = ax.get_legend_handles_labels()
-            if handles:
-                legend = ax.legend(title=self.legend_title)
-                adjust_legend_subtitles(legend)
+        ax(fig)
 
 
 @_deprecate_positional_args
