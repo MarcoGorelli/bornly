@@ -887,7 +887,7 @@ class VectorPlotter:
             # fields in the index, because otherwise there is too much ambiguity.
             try:
                 val_as_data_key = (
-                    val in data
+                    val in data.columns
                     or (isinstance(val, (str, bytes)) and val in index)
                 )
             except (KeyError, TypeError):
@@ -897,7 +897,7 @@ class VectorPlotter:
 
                 # We know that __getitem__ will work
 
-                if val in data:
+                if val in data.columns:
                     plot_data[key] = data[val]
                 elif val in index:
                     plot_data[key] = index[val]
