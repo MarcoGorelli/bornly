@@ -1352,7 +1352,7 @@ class _ViolinPlotter(_CategoricalPlotter):
     def draw_stick_lines(self, ax, data, support, density,
                          center, split=False):
         """Draw individual observations as sticks at width of density."""
-        for val in data.columns:
+        for val in data:
             self.draw_to_density(ax, center, val, support, density, split,
                                  linewidth=self.linewidth * .5)
 

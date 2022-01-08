@@ -18,11 +18,23 @@ from bornly._seaborn.seaborn import (
 )
 
 
+def _validate_pandas(*args):
+    for data in args:
+        if isinstance(data, (pd.DataFrame, pd.Series)):
+            if data.index.has_duplicates:
+                raise ValueError(
+                    'Passed data with duplicate index. Please de-duplicate '
+                    'your index before passing it to bornly, '
+                    'e.g. df.reset_index(drop=True)'
+                    ) from None
+
 def _cartesian(x, y):
     return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
 
+
 def _deconvert_rgba(rgba):
-    return tuple([float(i)/255 for i in rgba.strip('rgba()').split(',')[:3]])
+    return tuple([float(i) / 255 for i in rgba.strip("rgba()").split(",")[:3]])
+
 
 def _convert_color(color, alpha=1):
     if alpha is None:
@@ -30,8 +42,9 @@ def _convert_color(color, alpha=1):
     return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
     # return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
 
+
 def _dedupe_legend(fig):
-    condition = lambda i: i.showlegend is not False and len(i.x)>0
+    condition = lambda i: i.showlegend is not False and len(i.x) > 0
     in_legend = {i.name for i in fig.data if condition(i)}
     counts = {key: 0 for key in in_legend}
     for data_ in fig.data:
@@ -39,46 +52,57 @@ def _dedupe_legend(fig):
             continue
         counts[data_.name] += 1
         data_.showlegend = counts[data_.name] == 1
+
+
 class Foo:
     update_units = lambda *_: None
     convert_units = lambda x, y: y
     get_scale = lambda *_: None  # TODO maybe, maybe, can do this
     grid = lambda x, y: None
 
+
 class Line:
     def __init__(self, scatter, ax=None):
         self.scatter = scatter
         self.ax = ax
+
     def set_color(self, color):
         self.scatter.marker.update(color=_convert_color(color, 1))
+
     def get_color(self):
         return _deconvert_rgba(self.scatter.marker.color)
+
     def get_alpha(self):
-        return float(self.scatter.marker.color.strip('rgba()').split(',')[-1])
+        return float(self.scatter.marker.color.strip("rgba()").split(",")[-1])
+
     def get_solid_capstyle(self):
         pass  # huh
+
     def remove(self):
         pass
+
     def set_dashes(self, dashes):
         if dashes:
-            self.scatter.line.update(dash=', '.join([str(i) for i in dashes]))
+            self.scatter.line.update(dash=", ".join([str(i) for i in dashes]))
+
     def set_linewidth(self, width):
         pass
 
     def set_marker(self, marker):
-        if marker == 'o':
-            symbol = 'circle'
-        elif marker == 'X':
-            symbol = 'x'
+        if marker == "o":
+            symbol = "circle"
+        elif marker == "X":
+            symbol = "x"
         else:
             raise ValueError(f'Unsupported marker "{marker}", please report issue')
         self.scatter.marker.symbol = symbol
-    
+
     @property
     def sticky_edges(self):
         class Foo:
             x = []
             y = []
+
         return Foo()
 
     def set_facecolors(self, facecolors):
@@ -86,28 +110,42 @@ class Line:
         self.ax.figure.data = self.ax.figure.data[:-1]
         for facecolor in facecolors_series.unique():
             mask = facecolors_series == facecolor
-            self.ax(go.Figure(go.Scatter(x=self.scatter.x[mask], y=self.scatter.y[mask], mode='markers', marker=dict(color=_convert_color(facecolor, 1)))))
+            self.ax(
+                go.Figure(
+                    go.Scatter(
+                        x=self.scatter.x[mask],
+                        y=self.scatter.y[mask],
+                        mode="markers",
+                        marker=dict(color=_convert_color(facecolor, 1)),
+                    )
+                )
+            )
         pass
 
     def get_sizes(self):
         return [1]
+
     def set_sizes(self, sizes):
         pass
+
     def set_linewidths(self, *args, **kwargs):
         return None
-    
+
+
 class Legend:
     def __init__(self, legend):
         self.legend = legend
-    
+
     def findobj(self, obj):
         class Foo:
             def get_children(self):
                 return []
+
         return [Foo()]
-    
+
+
 def _parse_color(color, alpha=None):
-    if isinstance(color, str) and color.startswith('rgba('):
+    if isinstance(color, str) and color.startswith("rgba("):
         return color
     elif isinstance(color, tuple) and len(color) == 4:
         color = _convert_color(color[:3], color[3])
@@ -119,6 +157,8 @@ def _parse_color(color, alpha=None):
         except ValueError:
             color = _convert_color((mpl.cm.hot(float(color))), alpha)
     return color
+
+
 class Ax:
     def __init__(self, func, *, nrows, ncols):
         self._func = func
@@ -129,29 +169,36 @@ class Ax:
 
     def barh(self, x, y, width, **kwargs):
         pass
+
     def bar(self, x, y, width, **kwargs):
         pass
 
     def set_xticks(self, xticks):
         pass
+
     def set_xticklabels(self, xticklabels):
         pass
 
     @property
     def yaxis(self):
         return Foo()
+
     @property
     def xaxis(self):
         return Foo()
 
     def get_xlabel(self, visible=None):
         return self.figure.layout.xaxis.title.text
+
     def get_ylabel(self, visible=None):
         return self.figure.layout.yaxis.title.text
+
     def get_legend_handles_labels(self):
         return self.figure.layout.legend, None
+
     def get_xticklabels(self):
         return []  # todo
+
     def get_yticklabels(self):
         return []  # todo
 
@@ -159,47 +206,46 @@ class Ax:
         if title is not None:
             self.figure.layout.legend.title = title
         return Legend(self.figure.layout.legend)
-    
+
     def plot(self, x, y, **kwargs):
-        if kwargs.get('color', None) is not None:
-            color = kwargs.get('color', None)
+        if kwargs.get("color", None) is not None:
+            color = kwargs.get("color", None)
             color = _parse_color(color)
         else:
             color = _get_colors(1, 1)[0]
 
-        if kwargs.get('dashes') is not None:
-            dash = ', '.join([str(i) for i in kwargs.get('dashes')])
-            if dash == '':
+        if kwargs.get("dashes") is not None:
+            dash = ", ".join([str(i) for i in kwargs.get("dashes")])
+            if dash == "":
                 dash = None
         else:
             dash = None
 
-        if kwargs.get('label') is not None:
-            label = str(kwargs.get('label'))
+        if kwargs.get("label") is not None:
+            label = str(kwargs.get("label"))
         else:
             label = None
 
         fig = go.Scatter(
             x=x,
             y=y,
-            mode='lines',
+            mode="lines",
             legendgroup=label,
             name=label,
             marker=dict(color=color),
-            line=dict(dash=dash)
+            line=dict(dash=dash),
         )
-        self.figure.add_trace(fig, row=self._row+1, col=self._col+1)
-        return Line(self.figure.data[-1], self),
-    
+        self.figure.add_trace(fig, row=self._row + 1, col=self._col + 1)
+        return (Line(self.figure.data[-1], self),)
+
     def add_legend(self, legend_data, **kwargs):
         for key, val in legend_data.items():
             color = val.get_color()
             for _data in self.figure.data:
                 if Line(_data).get_color() == color[:3]:
                     _data.legendgroup = key
-        self.figure.layout.legend.title = kwargs.get('title')
+        self.figure.layout.legend.title = kwargs.get("title")
         return Legend(self.figure.layout.legend)
-
 
     def __call__(self, figure):
         return self._func(figure)
@@ -242,10 +288,10 @@ class Ax:
         y2,
         **kwargs,
     ):
-        rgba = kwargs.get('rgba')
+        rgba = kwargs.get("rgba")
         if rgba is None:
-            rgb = kwargs.get('color', None)
-            alpha = kwargs.get('alpha', None)
+            rgb = kwargs.get("color", None)
+            alpha = kwargs.get("alpha", None)
             if rgb is not None:
                 rgba = _parse_color(rgb, alpha)
             else:
@@ -256,10 +302,10 @@ class Ax:
                 y=y2,
                 line=dict(color="rgba(0,0,0,0)"),
                 showlegend=False,
-                hoverinfo='skip',
+                hoverinfo="skip",
             ),
-            row=self._row+1,
-            col=self._col+1,
+            row=self._row + 1,
+            col=self._col + 1,
         )
 
         self.figure.add_trace(
@@ -270,10 +316,10 @@ class Ax:
                 fill="tonexty",
                 fillcolor=rgba,
                 showlegend=False,
-                hoverinfo='skip',
+                hoverinfo="skip",
             ),
-            row=self._row+1,
-            col=self._col+1,
+            row=self._row + 1,
+            col=self._col + 1,
         )
         return self.figure
 
@@ -313,8 +359,6 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, wrap=True, **kwarg
     return fig, np.asarray(ax)
 
 
-
-
 def _get_colors(n, alpha, palette=None):
     if palette is None:
         palette = _sns.color_palette()
@@ -323,8 +367,6 @@ def _get_colors(n, alpha, palette=None):
     else:
         colors = palette[:n]
     return [_convert_color(color, alpha) for color in colors]
-
-
 
 
 # not easy to override `ax.scatter`, so got to do it
@@ -350,13 +392,16 @@ class ScatterPlotter(_sns.relational._ScatterPlotter):
         }
         if "palette" in self.variables:
             if isinstance(self.variables["palette"], dict):
-                plotting_kwargs["color_discrete_map"] = { key: _convert_color(_sns.color_palette([val])[0], 1) for key, val in self.variables["palette"].items() }
+                plotting_kwargs["color_discrete_map"] = {
+                    key: _convert_color(_sns.color_palette([val])[0], 1)
+                    for key, val in self.variables["palette"].items()
+                }
             else:
                 plotting_kwargs["color_discrete_sequence"] = _get_colors(
                     -1, 1, _sns.color_palette(self.variables["palette"])
                 )
-        elif 'color' in kws:
-            plotting_kwargs["color_discrete_sequence"] = [_parse_color(kws['color'])]
+        elif "color" in kws:
+            plotting_kwargs["color_discrete_sequence"] = [_parse_color(kws["color"])]
         else:
             plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
         if "hue" in self.variables:
@@ -406,6 +451,7 @@ def scatterplot(
     ax=None,
     **kwargs,
 ):
+    _validate_pandas(x, y, data, hue, size, style)
 
     variables = ScatterPlotter.get_semantics(locals())
     p = ScatterPlotter(
@@ -437,9 +483,6 @@ def scatterplot(
 
     p.plot(ax, kwargs)
     return ax.figure
-
-
-
 
 
 # also not one to be overridden easily...
@@ -663,6 +706,7 @@ def heatmap(
         ...     f, ax = plt.subplots(figsize=(7, 5))
         ...     ax = sns.heatmap(corr, mask=mask, vmax=.3, square=True)
     """
+    _validate_pandas(data)
     # Initialize the plotter object
     plotter = HeatMapper(
         data,
@@ -791,6 +835,7 @@ def pairplot(
     .. include:: ../docstrings/pairplot.rst
 
     """
+    _validate_pandas(data, hue)
 
     if not isinstance(data, pd.DataFrame):
         raise TypeError(
@@ -926,6 +971,7 @@ def barplot(
     ax=None,
     **kwargs,
 ):
+    _validate_pandas(x, y, data, hue)
 
     plotter = BarPlotter(
         x,
@@ -1030,7 +1076,7 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
             )
             fig.data[0].legendgroup = str(self.label)
             fig.data[0].name = self.label
-            fig.data[0].showlegend=True
+            fig.data[0].showlegend = True
             ax(fig)
             ax.figure.update_layout(fig.layout)
         else:
@@ -1059,8 +1105,6 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
         # Draw the regression line and confidence interval
         data = pd.DataFrame({"x": grid, "y": yhat})
 
-        
-        
         fig = px.line(
             data,
             x="x",
@@ -1072,10 +1116,10 @@ class RegressionPlotter(_sns.regression._RegressionPlotter):
         if err_bands is not None:
             fig.data[0].error_y = dict(
                 type="data",
-                array=err_bands[1] - data['y'],
+                array=err_bands[1] - data["y"],
                 color="rgba(0, 0, 0, 0)",
             )
-        assert(len(fig.data) == 1)
+        assert len(fig.data) == 1
         legendgroup = str(self.label)
         fig.data[0].legendgroup = legendgroup
         ax(fig)
@@ -1127,6 +1171,7 @@ def regplot(
     line_kws=None,
     ax=None,
 ):
+    _validate_pandas(x, y, data)
     plotter = RegressionPlotter(
         x,
         y,
@@ -1214,9 +1259,11 @@ def histplot(
     # Other appearance keywords
     **kwargs,
 ):
+    _validate_pandas(x, y, data, hue)
 
     p = _sns.distributions._DistributionPlotter(
-        data=data, variables=_sns.distributions._DistributionPlotter.get_semantics(locals())
+        data=data,
+        variables=_sns.distributions._DistributionPlotter.get_semantics(locals()),
     )
 
     p.map_hue(palette=palette, order=hue_order, norm=hue_norm)
@@ -1261,8 +1308,10 @@ class FacetGrid(_sns.axisgrid.FacetGrid):
                 continue
             for key, val in variables.items():
                 if val is not None:
-                    data.hovertemplate = data.hovertemplate.replace(f'{plot_variables[key]}=', f'{val}=')
-    
+                    data.hovertemplate = data.hovertemplate.replace(
+                        f"{plot_variables[key]}=", f"{val}="
+                    )
+
     def tight_layout(self, *args, **kwargs):
         pass
 
@@ -1520,6 +1569,7 @@ def relplot(
     units=None,
     **kwargs,
 ):
+    _validate_pandas(x, y, data, hue, style)
 
     if kind == "scatter":
 
@@ -1689,21 +1739,48 @@ def relplot(
 
     return g._figure
 
+
 def lmplot(
     *,
-    x=None, y=None,
+    x=None,
+    y=None,
     data=None,
-    hue=None, col=None, row=None,  # TODO move before data once * is enforced
-    palette=None, col_wrap=None, height=5, aspect=1, markers="o",
-    hue_order=None, col_order=None, row_order=None,
-    legend=True, x_estimator=None, x_bins=None,
-    x_ci="ci", scatter=True, fit_reg=True, ci=95, n_boot=1000,
-    units=None, seed=None, order=1, logistic=False, lowess=False,
-    robust=False, logx=False, x_partial=None, y_partial=None,
-    truncate=True, x_jitter=None, y_jitter=None, scatter_kws=None,
-    line_kws=None, facet_kws=None
+    hue=None,
+    col=None,
+    row=None,  # TODO move before data once * is enforced
+    palette=None,
+    col_wrap=None,
+    height=5,
+    aspect=1,
+    markers="o",
+    hue_order=None,
+    col_order=None,
+    row_order=None,
+    legend=True,
+    x_estimator=None,
+    x_bins=None,
+    x_ci="ci",
+    scatter=True,
+    fit_reg=True,
+    ci=95,
+    n_boot=1000,
+    units=None,
+    seed=None,
+    order=1,
+    logistic=False,
+    lowess=False,
+    robust=False,
+    logx=False,
+    x_partial=None,
+    y_partial=None,
+    truncate=True,
+    x_jitter=None,
+    y_jitter=None,
+    scatter_kws=None,
+    line_kws=None,
+    facet_kws=None,
 ):
-
+    _validate_pandas(x, y, data, hue, style)
 
     if facet_kws is None:
         facet_kws = {}
@@ -1718,10 +1795,17 @@ def lmplot(
 
     # Initialize the grid
     facets = FacetGrid(
-        data, row=row, col=col, hue=hue,
+        data,
+        row=row,
+        col=col,
+        hue=hue,
         palette=palette,
-        row_order=row_order, col_order=col_order, hue_order=hue_order,
-        height=height, aspect=aspect, col_wrap=col_wrap,
+        row_order=row_order,
+        col_order=col_order,
+        hue_order=hue_order,
+        height=height,
+        aspect=aspect,
+        col_wrap=col_wrap,
         **facet_kws,
     )
 
@@ -1734,8 +1818,12 @@ def lmplot(
     if not isinstance(markers, list):
         markers = [markers] * n_markers
     if len(markers) != n_markers:
-        raise ValueError(("markers must be a singleton or a list of markers "
-                          "for each level of the hue variable"))
+        raise ValueError(
+            (
+                "markers must be a singleton or a list of markers "
+                "for each level of the hue variable"
+            )
+        )
     facets.hue_kws = {"marker": markers}
 
     def update_datalim(data, x, y, ax, **kws):
@@ -1748,12 +1836,27 @@ def lmplot(
 
     # Draw the regression plot on each facet
     regplot_kws = dict(
-        x_estimator=x_estimator, x_bins=x_bins, x_ci=x_ci,
-        scatter=scatter, fit_reg=fit_reg, ci=ci, n_boot=n_boot, units=units,
-        seed=seed, order=order, logistic=logistic, lowess=lowess,
-        robust=robust, logx=logx, x_partial=x_partial, y_partial=y_partial,
-        truncate=truncate, x_jitter=x_jitter, y_jitter=y_jitter,
-        scatter_kws=scatter_kws, line_kws=line_kws,
+        x_estimator=x_estimator,
+        x_bins=x_bins,
+        x_ci=x_ci,
+        scatter=scatter,
+        fit_reg=fit_reg,
+        ci=ci,
+        n_boot=n_boot,
+        units=units,
+        seed=seed,
+        order=order,
+        logistic=logistic,
+        lowess=lowess,
+        robust=robust,
+        logx=logx,
+        x_partial=x_partial,
+        y_partial=y_partial,
+        truncate=truncate,
+        x_jitter=x_jitter,
+        y_jitter=y_jitter,
+        scatter_kws=scatter_kws,
+        line_kws=line_kws,
     )
     facets.map_dataframe(regplot, x=x, y=y, **regplot_kws)
     facets.set_axis_labels(x, y)
@@ -1761,27 +1864,89 @@ def lmplot(
     # Add a legend
     if legend and (hue is not None) and (hue not in [col, row]):
         facets._figure.layout.legend.title = hue
-    facets.update_hover({'x': 'x', 'y': 'y'}, {'x': x, 'y': y})
+    facets.update_hover({"x": "x", "y": "y"}, {"x": x, "y": y})
     return facets._figure
 
 
-def lineplot(**kwargs):
-    if kwargs.get('ax') is None:
-        _, ax = subplots() 
-    else:
-        ax = kwargs.pop('ax')
+def lineplot(
+    *,
+    x=None,
+    y=None,
+    hue=None,
+    size=None,
+    style=None,
+    data=None,
+    palette=None,
+    hue_order=None,
+    hue_norm=None,
+    sizes=None,
+    size_order=None,
+    size_norm=None,
+    dashes=True,
+    markers=None,
+    style_order=None,
+    units=None,
+    estimator="mean",
+    ci="deprecated",
+    n_boot=1000,
+    seed=None,
+    sort=True,
+    err_style="band",
+    err_kws=None,
+    legend="auto",
+    errorbar=("ci", 95),
+    ax=None,
+    **kwargs,
+):
+    _validate_pandas(x, y, data)
+    if ax is None:
+        _, ax = subplots()
 
-    if 'size' in kwargs:
-        raise NotImplementedError('size isn\'t supported yet. Use relplot instead?')
-    if kwargs.get('err_style') == 'bars':
-        raise NotImplementedError('err_style = "bars" is not supported yet, use "band" instead.')
-    if kwargs.get('dashes') is False:
-        raise NotImplementedError('passing dashes=False is not supported yet')
-    if kwargs.get('markers') is False:
-        raise NotImplementedError('passing markers=False is not supported yet')
-        
-    fig = _sns.lineplot(ax=ax, **kwargs).figure
-    color_legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup and i.marker.color is not None}
+    if "size" in kwargs:
+        raise NotImplementedError("size isn't supported yet. Use relplot instead?")
+    if kwargs.get("err_style") == "bars":
+        raise NotImplementedError(
+            'err_style = "bars" is not supported yet, use "band" instead.'
+        )
+    if kwargs.get("dashes") is False:
+        raise NotImplementedError("passing dashes=False is not supported yet")
+    if kwargs.get("markers") is False:
+        raise NotImplementedError("passing markers=False is not supported yet")
+
+    fig = _sns.lineplot(
+        ax=ax,
+        x=x,
+        y=y,
+        hue=hue,
+        size=size,
+        style=style,
+        data=data,
+        palette=palette,
+        hue_order=hue_order,
+        hue_norm=hue_norm,
+        sizes=sizes,
+        size_order=size_order,
+        size_norm=size_norm,
+        dashes=dashes,
+        markers=markers,
+        style_order=style_order,
+        units=units,
+        estimator=estimator,
+        ci=ci,
+        n_boot=n_boot,
+        seed=seed,
+        sort=sort,
+        err_style=err_style,
+        err_kws=err_kws,
+        legend=legend,
+        errorbar=errorbar,
+        **kwargs,
+    ).figure
+    color_legend_map = {
+        ",".join(i.marker.color.split(",")[:3]): i.legendgroup
+        for i in fig.data
+        if i.legendgroup and i.marker.color is not None
+    }
     dash_legend_map = {i.line.dash: i.legendgroup for i in fig.data if i.legendgroup}
     if not color_legend_map and not dash_legend_map:
         fig.update_layout(showlegend=False)
@@ -1803,43 +1968,85 @@ def lineplot(**kwargs):
 
         legendgroup = set()
 
-        
         # I think the solution is to always plot the rgba color!
 
         if _color is not None:
-            name = color_legend_map.get(','.join(_color.split(',')[:3]))
+            name = color_legend_map.get(",".join(_color.split(",")[:3]))
             if name is not None:
                 legendgroup.add(name)
 
         dashname = dash_legend_map.get(_dash)
-        if 'style' in kwargs and dashname is not None:
+        if "style" in kwargs and dashname is not None:
             legendgroup.add(dashname)
 
-        if legendgroup and not _data.hoverinfo == 'skip':
-            _data.legendgroup = ', '.join(legendgroup)
-            _data.name = ', '.join(legendgroup)
-        if not _data.hoverinfo == 'skip':
-            _data.hovertemplate = f'{x_label or "x"}=%{{x}}<br>{y_label or "y"}=%{{y}}<extra></extra>'
-
-
-    # _dedupe_legend(fig)
+        if legendgroup and not _data.hoverinfo == "skip":
+            _data.legendgroup = ", ".join(legendgroup)
+            _data.name = ", ".join(legendgroup)
+        if not _data.hoverinfo == "skip":
+            _data.hovertemplate = (
+                f'{x_label or "x"}=%{{x}}<br>{y_label or "y"}=%{{y}}<extra></extra>'
+            )
 
     return fig
 
 
-def kdeplot(**kwargs):
-    if kwargs.get('ax') is None:
-        _, ax = subplots() 
+def kdeplot(
+    x=None,
+    *,
+    y=None,
+    cut=3, clip=None, legend=True, cumulative=False,
+    cbar=False, cbar_ax=None, cbar_kws=None,
+    ax=None,
+
+    # New params
+    weights=None,  # TODO note that weights is grouped with semantics
+    hue=None, palette=None, hue_order=None, hue_norm=None,
+    multiple="layer", common_norm=True, common_grid=False,
+    levels=10, thresh=.05,
+    bw_method="scott", bw_adjust=1, log_scale=None,
+    color=None, fill=None,
+
+    # Renamed params
+    data=None, data2=None,
+
+    # New in v0.12
+    warn_singular=True,
+
+    **kwargs,
+):
+    _validate_pandas(x, y, data, data2)
+
+    # need to set args here
+    if kwargs.get("ax") is None:
+        _, ax = subplots()
     else:
-        ax = kwargs.pop('ax')
-    fig = _sns.kdeplot(ax=ax, **kwargs).figure
-    legend_map = {','.join(i.marker.color.split(',')[:3]): i.legendgroup for i in fig.data if i.legendgroup}
+        ax = kwargs.pop("ax")
+    fig = _sns.kdeplot(
+        ax=ax,
+        x=x,
+        y=y,
+        cut=cut, clip=clip, legend=legend, cumulative=cumulative,
+        cbar=cbar, cbar_ax=cbar_ax, cbar_kws=cbar_kws,
+        weights=weights,
+        hue=hue, palette=palette, hue_order=hue_order, hue_norm=hue_norm,
+        multiple=multiple, common_norm=common_norm, common_grid=common_grid,
+        levels=levels, thresh=thresh,
+        bw_method=bw_method, bw_adjust=bw_adjust, log_scale=log_scale,
+        color=color, fill=fill,
+        data=data, data2=data2,
+        warn_singular=warn_singular,
+        **kwargs).figure
+    legend_map = {
+        ",".join(i.marker.color.split(",")[:3]): i.legendgroup
+        for i in fig.data
+        if i.legendgroup
+    }
     if not legend_map:
         fig.update_layout(showlegend=False)
 
     x_label = ax.get_xlabel()
     y_label = ax.get_ylabel()
-        
+
     for _data in fig.data:
         if _data.marker.color is not None:
             _color = _data.marker.color
@@ -1847,8 +2054,8 @@ def kdeplot(**kwargs):
             _color = _data.fillcolor
         else:
             continue
-        _data.legendgroup = legend_map.get(','.join(_color.split(',')[:3]))
-        _data.name = legend_map.get(','.join(_color.split(',')[:3]))
-        if not _data.hoverinfo == 'skip':
-            _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
+        _data.legendgroup = legend_map.get(",".join(_color.split(",")[:3]))
+        _data.name = legend_map.get(",".join(_color.split(",")[:3]))
+        if not _data.hoverinfo == "skip":
+            _data.hovertemplate = f"{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>"
     return fig
