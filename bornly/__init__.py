@@ -41,7 +41,7 @@ def _dedupe_legend(fig):
 class Foo:
     update_units = lambda *_: None
     convert_units = lambda x, y: y
-    get_scale = lambda *_: None
+    get_scale = lambda *_: None  # TODO maybe, maybe, can do this
     grid = lambda x, y: None
 
 class Line:

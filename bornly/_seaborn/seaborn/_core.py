@@ -1096,9 +1096,12 @@ class VectorPlotter:
                             # it is similar to GH2419, but more complicated because
                             # supporting `order` in categorical plots is tricky
                             orig = orig[orig.isin(self.var_levels[var])]
-                    comp = pd.to_numeric(converter.convert_units(orig))
-                    if converter.get_scale() == "log":
-                        comp = np.log10(comp)
+                    if not pd.api.types.is_datetime64_any_dtype(orig.dtype):
+                        comp = pd.to_numeric(converter.convert_units(orig))
+                        if converter.get_scale() == "log":
+                            comp = np.log10(comp)
+                    else:
+                        comp = orig
                     comp_col.loc[orig.index] = comp
 
                 comp_data.insert(0, var, comp_col)
