@@ -8,6 +8,8 @@ fmri = sns.load_dataset("fmri")
 
 import plotly.express as px
 import pandas as pd
+import bornly as bns
 
-fig = bns.lineplot(x=fmri['timepoint'], y=fmri['signal'], hue=fmri['event'], style=fmri['region'])
-fig
+penguins = bns.load_dataset("penguins")
+
+bns.histplot(data=penguins)

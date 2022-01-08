@@ -1294,6 +1294,8 @@ def histplot(
         plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
         if kde:
             plotting_kwargs["marginal"] = "violin"
+        if plotting_kwargs.get('x') is None:
+            raise ValueError('Please specify a value of `x`')
         fig = px.histogram(**plotting_kwargs)
         return fig
 
