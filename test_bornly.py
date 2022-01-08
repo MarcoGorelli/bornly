@@ -10,5 +10,8 @@ import plotly.express as px
 import pandas as pd
 import bornly as bns
 
-fig = bns.lineplot(x=fmri['timepoint'], y=fmri['signal'], hue=fmri['event'], style=fmri['region'])
-fig
+import numpy as np
+x = np.linspace(-5, 5, 100)
+y = np.sin(x)
+import bornly as bns
+bns.scatterplot(x=x, y=y)

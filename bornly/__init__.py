@@ -18,7 +18,7 @@ from bornly._seaborn.seaborn import (
     load_dataset,
 )
 
-__version__ = '0.2.4'
+__version__ = "0.2.4"
 
 
 def _validate_pandas(*args):
@@ -26,10 +26,11 @@ def _validate_pandas(*args):
         if isinstance(data, (pd.DataFrame, pd.Series)):
             if data.index.has_duplicates:
                 raise ValueError(
-                    'Passed data with duplicate index. Please de-duplicate '
-                    'your index before passing it to bornly, '
-                    'e.g. df.reset_index(drop=True)'
-                    ) from None
+                    "Passed data with duplicate index. Please de-duplicate "
+                    "your index before passing it to bornly, "
+                    "e.g. df.reset_index(drop=True)"
+                ) from None
+
 
 def _cartesian(x, y):
     return np.transpose([np.tile(x, len(y)), np.repeat(y, len(x))])
@@ -169,6 +170,9 @@ class Ax:
         self._col = func.keywords["col"]
         self._nrows = nrows
         self._ncols = ncols
+    
+    def __repr__(self):
+        return self.figure
 
     def barh(self, x, y, width, **kwargs):
         pass
@@ -276,17 +280,17 @@ class Ax:
     def set_ylim(self, ylim):
         if not isinstance(ylim, Iterable):
             raise ValueError(
-                'set_ylim can only be called with an iterable, '
-                'e.g. set_xlim([0, 10])'
-                )
+                "set_ylim can only be called with an iterable, "
+                "e.g. set_xlim([0, 10])"
+            )
         self.figure.update_yaxes(range=ylim, row=self._row + 1, col=self._col + 1)
 
     def set_xlim(self, xlim, *args, **kwargs):
         if not isinstance(xlim, Iterable):
             raise ValueError(
-                'set_xlim can only be called with an iterable, '
-                'e.g. set_xlim([0, 10])'
-                )
+                "set_xlim can only be called with an iterable, "
+                "e.g. set_xlim([0, 10])"
+            )
         self.figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
 
     def set(self, **kwargs):
@@ -423,6 +427,11 @@ class ScatterPlotter(_sns.relational._ScatterPlotter):
         if "sizes" in self.variables:
             plotting_kwargs["size_max"] = self.variables["sizes"][1]
 
+        if plotting_kwargs.get('x') is None:
+            raise NotImplementedError(
+                '`x` cannot be None '
+                '(or at least, not yet)'
+                ) from None
         fig = px.scatter(**plotting_kwargs)
         ax.set_xlabel(self.variables["x"])
         ax.set_ylabel(self.variables["y"])
@@ -1306,8 +1315,8 @@ def histplot(
         plotting_kwargs["color_discrete_sequence"] = _get_colors(-1, 1)
         if kde:
             plotting_kwargs["marginal"] = "violin"
-        if plotting_kwargs.get('x') is None:
-            raise ValueError('Please specify a value of `x`')
+        if plotting_kwargs.get("x") is None:
+            raise ValueError("Please specify a value of `x`")
         fig = px.histogram(**plotting_kwargs)
         return fig
 
@@ -2008,24 +2017,35 @@ def kdeplot(
     x=None,
     *,
     y=None,
-    cut=3, clip=None, legend=True, cumulative=False,
-    cbar=False, cbar_ax=None, cbar_kws=None,
+    cut=3,
+    clip=None,
+    legend=True,
+    cumulative=False,
+    cbar=False,
+    cbar_ax=None,
+    cbar_kws=None,
     ax=None,
-
     # New params
     weights=None,  # TODO note that weights is grouped with semantics
-    hue=None, palette=None, hue_order=None, hue_norm=None,
-    multiple="layer", common_norm=True, common_grid=False,
-    levels=10, thresh=.05,
-    bw_method="scott", bw_adjust=1, log_scale=None,
-    color=None, fill=None,
-
+    hue=None,
+    palette=None,
+    hue_order=None,
+    hue_norm=None,
+    multiple="layer",
+    common_norm=True,
+    common_grid=False,
+    levels=10,
+    thresh=0.05,
+    bw_method="scott",
+    bw_adjust=1,
+    log_scale=None,
+    color=None,
+    fill=None,
     # Renamed params
-    data=None, data2=None,
-
+    data=None,
+    data2=None,
     # New in v0.12
     warn_singular=True,
-
     **kwargs,
 ):
     _validate_pandas(x, y, data, data2)
@@ -2039,17 +2059,33 @@ def kdeplot(
         ax=ax,
         x=x,
         y=y,
-        cut=cut, clip=clip, legend=legend, cumulative=cumulative,
-        cbar=cbar, cbar_ax=cbar_ax, cbar_kws=cbar_kws,
+        cut=cut,
+        clip=clip,
+        legend=legend,
+        cumulative=cumulative,
+        cbar=cbar,
+        cbar_ax=cbar_ax,
+        cbar_kws=cbar_kws,
         weights=weights,
-        hue=hue, palette=palette, hue_order=hue_order, hue_norm=hue_norm,
-        multiple=multiple, common_norm=common_norm, common_grid=common_grid,
-        levels=levels, thresh=thresh,
-        bw_method=bw_method, bw_adjust=bw_adjust, log_scale=log_scale,
-        color=color, fill=fill,
-        data=data, data2=data2,
+        hue=hue,
+        palette=palette,
+        hue_order=hue_order,
+        hue_norm=hue_norm,
+        multiple=multiple,
+        common_norm=common_norm,
+        common_grid=common_grid,
+        levels=levels,
+        thresh=thresh,
+        bw_method=bw_method,
+        bw_adjust=bw_adjust,
+        log_scale=log_scale,
+        color=color,
+        fill=fill,
+        data=data,
+        data2=data2,
         warn_singular=warn_singular,
-        **kwargs).figure
+        **kwargs,
+    ).figure
     legend_map = {
         ",".join(i.marker.color.split(",")[:3]): i.legendgroup
         for i in fig.data
