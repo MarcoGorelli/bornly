@@ -105,18 +105,18 @@ class Legend:
                 return []
         return [Foo()]
     
-def _parse_color(color):
+def _parse_color(color, alpha=None):
     if isinstance(color, str) and color.startswith('rgba('):
-        pass
+        return color
     elif isinstance(color, tuple) and len(color) == 4:
         color = _convert_color(color[:3], color[3])
     elif isinstance(color, tuple) and len(color) == 3:
-        color = _convert_color(color, 1)
+        color = _convert_color(color, alpha)
     elif isinstance(color, str):
         try:
-            color = _convert_color(mpl.colors.to_rgb(color), 1)
+            color = _convert_color(mpl.colors.to_rgb(color), alpha)
         except ValueError:
-            color = _convert_color((mpl.cm.hot(float(color))), 1)
+            color = _convert_color((mpl.cm.hot(float(color))), alpha)
     return color
 class Ax:
     def __init__(self, func, *, nrows, ncols):
@@ -246,7 +246,7 @@ class Ax:
             rgb = kwargs.get('color', None)
             alpha = kwargs.get('alpha', None)
             if rgb is not None:
-                rgba = _convert_color(rgb, alpha)
+                rgba = _parse_color(rgb, alpha)
             else:
                 rgba = _get_colors(1, alpha)[0]
         self.figure.add_trace(
@@ -1794,7 +1794,7 @@ def lineplot(**kwargs):
         elif _data.fillcolor is not None:
             _color = _data.fillcolor
         else:
-            _color is None
+            _color = None
         if _data.line.dash is not None:
             _dash = _data.line.dash
         else:
