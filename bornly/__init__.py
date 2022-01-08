@@ -24,10 +24,11 @@ def _cartesian(x, y):
 def _deconvert_rgba(rgba):
     return tuple([float(i)/255 for i in rgba.strip('rgba()').split(',')[:3]])
 
-def _convert_color(color, alpha):
-    if alpha is not None:
-        return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
-    return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
+def _convert_color(color, alpha=1):
+    if alpha is None:
+        alpha = 1
+    return f"rgba({color[0]*255}, {color[1]*255}, {color[2]*255}, {alpha})"
+    # return f"rgb({color[0]*255}, {color[1]*255}, {color[2]*255})"
 
 def _dedupe_legend(fig):
     condition = lambda i: i.showlegend is not False and len(i.x)>0
@@ -1788,7 +1789,7 @@ def lineplot(**kwargs):
     x_label = ax.get_xlabel()
     y_label = ax.get_ylabel()
 
-    for _data in fig.data:
+    for idx, _data in enumerate(fig.data):
         if _data.marker.color is not None:
             _color = _data.marker.color
         elif _data.fillcolor is not None:
@@ -1800,8 +1801,10 @@ def lineplot(**kwargs):
         else:
             _dash = None
 
-
         legendgroup = set()
+
+        
+        # I think the solution is to always plot the rgba color!
 
         if _color is not None:
             name = color_legend_map.get(','.join(_color.split(',')[:3]))
@@ -1815,8 +1818,6 @@ def lineplot(**kwargs):
         if legendgroup and not _data.hoverinfo == 'skip':
             _data.legendgroup = ', '.join(legendgroup)
             _data.name = ', '.join(legendgroup)
-
-        if not _data.hoverinfo == 'skip':
             _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
 
 
