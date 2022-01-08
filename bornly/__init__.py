@@ -18,6 +18,8 @@ from bornly._seaborn.seaborn import (
     load_dataset,
 )
 
+__version__ = '0.2.4'
+
 
 def _validate_pandas(*args):
     for data in args:
