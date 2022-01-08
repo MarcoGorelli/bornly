@@ -1,4 +1,5 @@
 import functools
+from collections import Iterable
 import matplotlib
 import copy
 import matplotlib as mpl
@@ -271,11 +272,20 @@ class Ax:
         self.figure.update_xaxes(title_text=label, row=self._row + 1, col=self._col + 1)
 
     def set_ylim(self, ylim):
+        if not isinstance(ylim, Iterable):
+            raise ValueError(
+                'set_ylim can only be called with an iterable, '
+                'e.g. set_xlim([0, 10])'
+                )
         self.figure.update_yaxes(range=ylim, row=self._row + 1, col=self._col + 1)
 
     def set_xlim(self, xlim, *args, **kwargs):
-        if isinstance(xlim, tuple):
-            self.figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
+        if not isinstance(xlim, Iterable):
+            raise ValueError(
+                'set_xlim can only be called with an iterable, '
+                'e.g. set_xlim([0, 10])'
+                )
+        self.figure.update_xaxes(range=xlim, row=self._row + 1, col=self._col + 1)
 
     def set(self, **kwargs):
         for key, val in kwargs.items():
