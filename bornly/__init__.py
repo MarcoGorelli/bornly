@@ -171,9 +171,6 @@ class Ax:
         self._nrows = nrows
         self._ncols = ncols
     
-    def __repr__(self):
-        return self.figure
-
     def barh(self, x, y, width, **kwargs):
         pass
 
@@ -2010,7 +2007,8 @@ def lineplot(
                 f'{x_label or "x"}=%{{x}}<br>{y_label or "y"}=%{{y}}<extra></extra>'
             )
 
-    return fig
+    fig.show()
+    return ax
 
 
 def kdeplot(
@@ -2108,4 +2106,5 @@ def kdeplot(
         _data.name = legend_map.get(",".join(_color.split(",")[:3]))
         if not _data.hoverinfo == "skip":
             _data.hovertemplate = f"{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>"
-    return fig
+    fig.show()
+    return ax
