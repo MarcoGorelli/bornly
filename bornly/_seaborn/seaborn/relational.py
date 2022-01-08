@@ -215,10 +215,7 @@ class _RelationalPlotter(VectorPlotter):
             (self.variables.get(v, None) for v in ["hue", "size", "style"])
             if title is not None
         }
-        if len(titles) == 1:
-            legend_title = titles.pop()
-        else:
-            legend_title = ""
+        legend_title = ', '.join(titles)
 
         title_kws = dict(
             visible=False, color="w", s=0, linewidth=0, marker="", dashes=""

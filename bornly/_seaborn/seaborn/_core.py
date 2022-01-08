@@ -1097,9 +1097,13 @@ class VectorPlotter:
                             # supporting `order` in categorical plots is tricky
                             orig = orig[orig.isin(self.var_levels[var])]
                     if not pd.api.types.is_datetime64_any_dtype(orig.dtype):
-                        comp = pd.to_numeric(converter.convert_units(orig))
-                        if converter.get_scale() == "log":
-                            comp = np.log10(comp)
+                        try:
+                            comp = pd.to_numeric(converter.convert_units(orig))
+                        except ValueError:
+                            comp = orig
+                        else:
+                            if converter.get_scale() == "log":
+                                comp = np.log10(comp)
                     else:
                         comp = orig
                     comp_col.loc[orig.index] = comp

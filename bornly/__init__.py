@@ -1789,7 +1789,7 @@ def lineplot(**kwargs):
     x_label = ax.get_xlabel()
     y_label = ax.get_ylabel()
 
-    for idx, _data in enumerate(fig.data):
+    for _data in fig.data:
         if _data.marker.color is not None:
             _color = _data.marker.color
         elif _data.fillcolor is not None:
@@ -1818,7 +1818,8 @@ def lineplot(**kwargs):
         if legendgroup and not _data.hoverinfo == 'skip':
             _data.legendgroup = ', '.join(legendgroup)
             _data.name = ', '.join(legendgroup)
-            _data.hovertemplate = f'{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>'
+        if not _data.hoverinfo == 'skip':
+            _data.hovertemplate = f'{x_label or "x"}=%{{x}}<br>{y_label or "y"}=%{{y}}<extra></extra>'
 
 
     # _dedupe_legend(fig)
