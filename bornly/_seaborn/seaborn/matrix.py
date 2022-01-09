@@ -292,64 +292,24 @@ class _HeatMapper:
         return ticks, labels
 
     def plot(self, ax, cax, kws):
-        """Draw the heatmap on the provided Axes."""
-        # Remove all the Axes spines
-        despine(ax=ax, left=True, bottom=True)
+        from bornly import _get_colors
+        import plotly.express as px
+        data_ = self.data.copy()
+        data_[self.plot_data.mask] = np.nan
+        plotting_kwargs = {
+            "img": data_,
+            "zmin": self.vmin,
+            "zmax": self.vmax,
+        }
+        palette = self.cmap(np.linspace(0, 1, self.cmap.N))
 
-        # setting vmin/vmax in addition to norm is deprecated
-        # so avoid setting if norm is set
-        if "norm" not in kws:
-            kws.setdefault("vmin", self.vmin)
-            kws.setdefault("vmax", self.vmax)
-
-        # Draw the heatmap
-        mesh = ax.pcolormesh(self.plot_data, cmap=self.cmap, **kws)
-
-        # Set the axis limits
-        ax.set(xlim=(0, self.data.shape[1]), ylim=(0, self.data.shape[0]))
-
-        # Invert the y axis to show the plot in matrix form
-        ax.invert_yaxis()
-
-        # Possibly add a colorbar
-        if self.cbar:
-            cb = ax.figure.colorbar(mesh, cax, ax, **self.cbar_kws)
-            cb.outline.set_linewidth(0)
-            # If rasterized is passed to pcolormesh, also rasterize the
-            # colorbar to avoid white lines on the PDF rendering
-            if kws.get('rasterized', False):
-                cb.solids.set_rasterized(True)
-
-        # Add row and column labels
-        if isinstance(self.xticks, str) and self.xticks == "auto":
-            xticks, xticklabels = self._auto_ticks(ax, self.xticklabels, 0)
-        else:
-            xticks, xticklabels = self.xticks, self.xticklabels
-
-        if isinstance(self.yticks, str) and self.yticks == "auto":
-            yticks, yticklabels = self._auto_ticks(ax, self.yticklabels, 1)
-        else:
-            yticks, yticklabels = self.yticks, self.yticklabels
-
-        ax.set(xticks=xticks, yticks=yticks)
-        xtl = ax.set_xticklabels(xticklabels)
-        ytl = ax.set_yticklabels(yticklabels, rotation="vertical")
-        plt.setp(ytl, va="center")  # GH2484
-
-        # Possibly rotate them if they overlap
-        _draw_figure(ax.figure)
-
-        if axis_ticklabels_overlap(xtl):
-            plt.setp(xtl, rotation="vertical")
-        if axis_ticklabels_overlap(ytl):
-            plt.setp(ytl, rotation="horizontal")
-
-        # Add the axis labels
-        ax.set(xlabel=self.xlabel, ylabel=self.ylabel)
-
-        # Annotate the cells with the formatted values
-        if self.annot:
-            self._annotate_heatmap(ax, mesh)
+        plotting_kwargs["color_continuous_scale"] = _get_colors(-1, 1, palette)
+        fig = px.imshow(**plotting_kwargs)
+        fig.update_layout(
+            xaxis_showgrid=False, yaxis_showgrid=False, template="plotly_white"
+        )
+        ax(fig)
+        ax.figure.update_layout(fig.layout)
 
 
 @_deprecate_positional_args

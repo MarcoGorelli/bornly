@@ -341,6 +341,7 @@ class _RegressionPlotter(_LinearPlotter):
     def plot(self, ax, scatter_kws, line_kws):
         """Draw the full plot."""
         # Insert the plot label into the correct set of keyword arguments
+        from seaborn import color_palette
         if self.scatter:
             scatter_kws["label"] = self.label
         else:
@@ -348,9 +349,10 @@ class _RegressionPlotter(_LinearPlotter):
 
         # Use the current color cycle state as a default
         if self.color is None:
-            lines, = ax.plot([], [])
-            color = lines.get_color()
-            lines.remove()
+            color = color_palette()[0]
+            # lines, = ax.plot([], [])
+            # color = lines.get_color()
+            # lines.remove()
         else:
             color = self.color
 
@@ -381,6 +383,8 @@ class _RegressionPlotter(_LinearPlotter):
         # This would ideally be handled better in matplotlib (i.e., distinguish
         # between edgewidth for solid glyphs and linewidth for line glyphs
         # but this should do for now.
+        from bornly import _convert_color
+        import plotly.express as px
         line_markers = ["1", "2", "3", "4", "+", "x", "|", "_"]
         if self.x_estimator is None:
             if "marker" in kws and kws["marker"] in line_markers:
@@ -389,11 +393,24 @@ class _RegressionPlotter(_LinearPlotter):
                 lw = mpl.rcParams["lines.markeredgewidth"]
             kws.setdefault("linewidths", lw)
 
-            if not hasattr(kws['color'], 'shape') or kws['color'].shape[1] < 4:
-                kws.setdefault("alpha", .8)
+            if not hasattr(kws["color"], "shape") or kws["color"].shape[1] < 4:
+                kws.setdefault("alpha", 0.8)
 
             x, y = self.scatter_data
-            ax.scatter(x, y, **kws)
+            data = pd.DataFrame({"x": x, "y": y})
+            fig = px.scatter(
+                data,
+                x="x",
+                y="y",
+                color_discrete_sequence=[
+                    _convert_color(mpl.colors.to_rgb(kws["color"]), kws["alpha"])
+                ],
+            )
+            fig.data[0].legendgroup = str(self.label)
+            fig.data[0].name = self.label
+            fig.data[0].showlegend = True
+            ax(fig)
+            ax.figure.update_layout(fig.layout)
         else:
             # TODO abstraction
             ci_kws = {"color": kws["color"]}
@@ -408,6 +425,8 @@ class _RegressionPlotter(_LinearPlotter):
 
     def lineplot(self, ax, kws):
         """Draw the model."""
+        from bornly import _convert_color
+        import plotly.express as px
         # Fit the regression model
         grid, yhat, err_bands = self.fit_regression(ax)
         edges = grid[0], grid[-1]
@@ -418,11 +437,38 @@ class _RegressionPlotter(_LinearPlotter):
         kws.setdefault("linewidth", lw)
 
         # Draw the regression line and confidence interval
-        line, = ax.plot(grid, yhat, **kws)
-        if not self.truncate:
-            line.sticky_edges.x[:] = edges  # Prevent mpl from adding margin
+        data = pd.DataFrame({"x": grid, "y": yhat})
+
+        fig = px.line(
+            data,
+            x="x",
+            y="y",
+            color_discrete_sequence=[
+                _convert_color(mpl.colors.to_rgb(kws["color"]), 1)
+            ],
+        )
         if err_bands is not None:
-            ax.fill_between(grid, *err_bands, facecolor=fill_color, alpha=.15)
+            fig.data[0].error_y = dict(
+                type="data",
+                array=err_bands[1] - data["y"],
+                color="rgba(0, 0, 0, 0)",
+            )
+        assert len(fig.data) == 1
+        legendgroup = str(self.label)
+        fig.data[0].legendgroup = legendgroup
+        ax(fig)
+        ax.figure.update_layout(fig.layout)
+
+        if err_bands is not None:
+            ax.fill_between(
+                grid,
+                *err_bands,
+                rgba=_convert_color(mpl.colors.to_rgb(fill_color), 0.15),
+                legend=False,
+                legendgroup=legendgroup,
+                hoverinfo="skip",
+            )
+
 
 
 _regression_docs = dict(

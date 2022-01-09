@@ -1557,51 +1557,57 @@ class _BarPlotter(_CategoricalStatPlotter):
     def draw_bars(self, ax, kws):
         """Draw the bars onto `ax`."""
         # Get the right matplotlib function depending on the orientation
-        barfunc = ax.bar if self.orient == "v" else ax.barh
-        barpos = np.arange(len(self.statistic))
+        import plotly.express as px
+        from bornly import _get_colors, _cartesian
 
+        data = pd.DataFrame({"y": self.statistic.flatten()})
+        plotting_kwargs = dict(
+            data_frame=data,
+            x="x",
+            y="y",
+            color_discrete_sequence=_get_colors(-1, 1, self.colors),
+        )
         if self.plot_hues is None:
-
-            # Draw the bars
-            barfunc(barpos, self.statistic, self.width,
-                    color=self.colors, align="center", **kws)
-
-            # Draw the confidence intervals
-            errcolors = [self.errcolor] * len(barpos)
-            self.draw_confints(ax,
-                               barpos,
-                               self.confint,
-                               errcolors,
-                               self.errwidth,
-                               self.capsize)
-
+            data["x"] = self.group_names
+            data["err"] = self.confint[:, 1] - data["y"]
+            plotting_kwargs["color"] = "x"
         else:
+            data[["hue", "x"]] = _cartesian(self.hue_names, self.group_names)
+            data["err"] = self.confint[:, :, 1].flatten() - data["y"]
+            plotting_kwargs["color"] = "hue"
+            plotting_kwargs["barmode"] = "group"
 
-            for j, hue_level in enumerate(self.hue_names):
+        plotting_kwargs["category_orders"] = {"x": self.group_names}
 
-                # Draw the bars
-                offpos = barpos + self.hue_offsets[j]
-                barfunc(offpos, self.statistic[:, j], self.nested_width,
-                        color=self.colors[j], align="center",
-                        label=hue_level, **kws)
+        if not np.isnan(data["err"]).all():
+            plotting_kwargs["error_y"] = "err"
 
-                # Draw the confidence intervals
-                if self.confint.size:
-                    confint = self.confint[:, j]
-                    errcolors = [self.errcolor] * len(offpos)
-                    self.draw_confints(ax,
-                                       offpos,
-                                       confint,
-                                       errcolors,
-                                       self.errwidth,
-                                       self.capsize)
+        if self.orient == "h":
+            plotting_kwargs["x"], plotting_kwargs["y"] = (
+                plotting_kwargs["y"],
+                plotting_kwargs["x"],
+            )
+            plotting_kwargs["orientation"] = "h"
+            if "error_y" in plotting_kwargs:
+                plotting_kwargs["error_x"] = plotting_kwargs.pop("error_y")
+
+        fig = px.bar(**plotting_kwargs)
+        ax(fig)
+        if self.orient == "v":
+            xlabel, ylabel = self.group_label, self.value_label
+        else:
+            xlabel, ylabel = self.value_label, self.group_label
+        ax.figure.update_layout(fig.layout)
+        ax.set(xlabel=xlabel, ylabel=ylabel)
+        if self.hue_names is not None:
+            ax.figure.layout.legend.title = self.hue_title
+        else:
+            ax.figure.update_layout(showlegend=False)
+
 
     def plot(self, ax, bar_kws):
         """Make the plot."""
         self.draw_bars(ax, bar_kws)
-        self.annotate_axes(ax)
-        if self.orient == "h":
-            ax.invert_yaxis()
 
 
 class _PointPlotter(_CategoricalStatPlotter):
