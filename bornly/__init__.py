@@ -1462,6 +1462,7 @@ def lineplot(
     x_label = ax.get_xlabel()
     y_label = ax.get_ylabel()
 
+    last_legendgroup = set()
     for _data in fig.data:
         if _data.marker.color is not None:
             _color = _data.marker.color
@@ -1490,10 +1491,13 @@ def lineplot(
         if legendgroup and not _data.hoverinfo == "skip":
             _data.legendgroup = ", ".join(legendgroup)
             _data.name = ", ".join(legendgroup)
+            last_legendgroup = legendgroup
         if not _data.hoverinfo == "skip":
             _data.hovertemplate = (
                 f'{x_label or "x"}=%{{x}}<br>{y_label or "y"}=%{{y}}<extra></extra>'
             )
+        if _data.fill == 'tonexty':
+            _data.legendgroup = ', '.join(last_legendgroup)
 
     return fig
 
