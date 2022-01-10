@@ -581,6 +581,8 @@ def pairplot(
         height=height or 800,
     )
     fig.update_traces(diagonal_visible=False)
+    if corner:
+        fig.update_traces(showupperhalf=False)
     return fig
 
 
