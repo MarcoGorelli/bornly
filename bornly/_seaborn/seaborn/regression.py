@@ -410,7 +410,6 @@ class _RegressionPlotter(_LinearPlotter):
             fig.data[0].name = self.label
             fig.data[0].showlegend = True
             ax(fig)
-            ax.figure.update_layout(fig.layout)
         else:
             # TODO abstraction
             ci_kws = {"color": kws["color"]}
@@ -457,7 +456,6 @@ class _RegressionPlotter(_LinearPlotter):
         legendgroup = str(self.label)
         fig.data[0].legendgroup = legendgroup
         ax(fig)
-        ax.figure.update_layout(fig.layout)
 
         if err_bands is not None:
             ax.fill_between(

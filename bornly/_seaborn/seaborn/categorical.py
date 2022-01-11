@@ -1597,7 +1597,6 @@ class _BarPlotter(_CategoricalStatPlotter):
             xlabel, ylabel = self.group_label, self.value_label
         else:
             xlabel, ylabel = self.value_label, self.group_label
-        ax.figure.update_layout(fig.layout)
         ax.set(xlabel=xlabel, ylabel=ylabel)
         if self.hue_names is not None:
             ax.figure.layout.legend.title = self.hue_title

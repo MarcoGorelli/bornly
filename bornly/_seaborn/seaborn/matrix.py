@@ -309,7 +309,6 @@ class _HeatMapper:
             xaxis_showgrid=False, yaxis_showgrid=False, template="plotly_white"
         )
         ax(fig)
-        ax.figure.update_layout(fig.layout)
 
 
 @_deprecate_positional_args

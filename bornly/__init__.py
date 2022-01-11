@@ -1,5 +1,6 @@
 import functools
 from collections import Iterable
+from re import sub
 import matplotlib
 import copy
 import matplotlib as mpl
@@ -172,9 +173,6 @@ class Ax:
         self._nrows = nrows
         self._ncols = ncols
     
-    def __repr__(self):
-        return self.figure
-
     def barh(self, x, y, width, **kwargs):
         pass
 
@@ -344,6 +342,7 @@ class Ax:
 def _add_to_fig(subplot, figure, row, col):
     for data in subplot.data:
         figure.add_trace(data, row=row + 1, col=col + 1)
+    figure.update_layout(subplot.layout)
 
 
 def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, wrap=True, **kwargs):
@@ -446,7 +445,7 @@ def scatterplot(
         return ax.figure
 
     p.plot(ax, kwargs)
-    return ax.figure
+    return ax
 
 
 def heatmap(
@@ -502,7 +501,7 @@ def heatmap(
     if square:
         ax.figure["layout"]["yaxis"]["scaleanchor"] = "x"
     plotter.plot(ax, cbar_ax, kwargs)
-    return ax.figure
+    return ax
 
 
 def pairplot(
@@ -644,7 +643,7 @@ def barplot(
     _, ax = subplots()
 
     plotter.plot(ax, kwargs)
-    return ax.figure
+    return ax
 
 
 def regplot(
@@ -715,7 +714,7 @@ def regplot(
     scatter_kws["marker"] = marker
     line_kws = {} if line_kws is None else copy.copy(line_kws)
     plotter.plot(ax, scatter_kws, line_kws)
-    return ax.figure
+    return ax
 
 
 def displot(*args, **kwargs):
@@ -789,6 +788,9 @@ def histplot(
     if discrete is None:
         discrete = p._default_discrete()
 
+    if ax is None:
+        _, ax = subplots()
+
     if p.univariate:
         plotting_kwargs = dict(
             data_frame=p.plot_data.rename(columns=p.variables),
@@ -805,7 +807,8 @@ def histplot(
         if plotting_kwargs.get("x") is None:
             raise ValueError("Please specify a value of `x`")
         fig = px.histogram(**plotting_kwargs)
-        return fig
+        ax(fig)
+        return ax
 
     else:
         raise NotImplementedError("bivariate histogram not yet supported")
@@ -1247,7 +1250,7 @@ def relplot(
     else:
         g.data = grid_data
 
-    return g._figure
+    return g
 
 
 def lmplot(
@@ -1375,7 +1378,7 @@ def lmplot(
     if legend and (hue is not None) and (hue not in [col, row]):
         facets._figure.layout.legend.title = hue
     facets.update_hover({"x": "x", "y": "y"}, {"x": x, "y": y})
-    return facets._figure
+    return facets
 
 
 def lineplot(
@@ -1501,7 +1504,7 @@ def lineplot(
         if _data.fill == 'tonexty':
             _data.legendgroup = ', '.join(last_legendgroup)
 
-    return fig
+    return ax
 
 
 def kdeplot(
@@ -1599,4 +1602,4 @@ def kdeplot(
         _data.name = legend_map.get(",".join(_color.split(",")[:3]))
         if not _data.hoverinfo == "skip":
             _data.hovertemplate = f"{x_label}=%{{x}}<br>{y_label}=%{{y}}<extra></extra>"
-    return fig
+    return ax
