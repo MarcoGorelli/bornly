@@ -10,11 +10,7 @@ import plotly.express as px
 import pandas as pd
 import bornly as bns
 
-import numpy as np
-x = np.linspace(-5, 5, 100)
-y = np.sin(x)
-import bornly as bns
 fig, ax = bns.subplots()
 fmri = bns.load_dataset("fmri")
-fig = bns.lineplot(data=fmri, x='timepoint', y='signal', hue='event')
-fig
+ax = bns.lineplot(data=fmri, x='timepoint', y='signal', size='event')
+ax.figure

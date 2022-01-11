@@ -92,8 +92,7 @@ class Line:
             self.scatter.line.update(dash=", ".join([str(i) for i in dashes]))
 
     def set_linewidth(self, width):
-        # what's this for?
-        pass
+        self.scatter.line.update(width=width)
 
     def set_marker(self, marker):
         if marker == "o":
@@ -102,7 +101,7 @@ class Line:
             symbol = "x"
         else:
             raise ValueError(f'Unsupported marker "{marker}", please report issue')
-        self.scatter.marker.symbol = symbol
+        self.scatter.marker.update(symbol = symbol)
 
     @property
     def sticky_edges(self):
@@ -111,31 +110,6 @@ class Line:
             y = []
         return Foo()
 
-    def set_facecolors(self, facecolors):
-        facecolors_series = pd.Series(facecolors)
-        self.ax.figure.data = self.ax.figure.data[:-1]
-        for facecolor in facecolors_series.unique():
-            mask = facecolors_series == facecolor
-            self.ax(
-                go.Figure(
-                    go.Scatter(
-                        x=self.scatter.x[mask],
-                        y=self.scatter.y[mask],
-                        mode="markers",
-                        marker=dict(color=_convert_color(facecolor, 1)),
-                    )
-                )
-            )
-        pass
-
-    def get_sizes(self):
-        return [1]
-
-    def set_sizes(self, sizes):
-        pass
-
-    def set_linewidths(self, *args, **kwargs):
-        return None
 
 
 class Legend:
@@ -1415,15 +1389,15 @@ def lineplot(
     if ax is None:
         _, ax = subplots()
 
-    if "size" in kwargs:
+    if size is not None:
         raise NotImplementedError("size isn't supported yet. Use relplot instead?")
-    if kwargs.get("err_style") == "bars":
+    if err_style == "bars":
         raise NotImplementedError(
             'err_style = "bars" is not supported yet, use "band" instead.'
         )
-    if kwargs.get("dashes") is False:
+    if dashes is False:
         raise NotImplementedError("passing dashes=False is not supported yet")
-    if kwargs.get("markers") is False:
+    if markers is False:
         raise NotImplementedError("passing markers=False is not supported yet")
 
     fig = _sns.lineplot(
@@ -1460,8 +1434,8 @@ def lineplot(
         for i in fig.data
         if i.legendgroup and i.marker.color is not None
     }
-    dash_legend_map = {i.line.dash: i.legendgroup for i in fig.data if i.legendgroup}
-    if not color_legend_map and not dash_legend_map:
+    style_legend_map = {i.line.dash: i.legendgroup for i in fig.data if i.legendgroup}
+    if not color_legend_map and not style_legend_map:
         fig.update_layout(showlegend=False)
 
     x_label = ax.get_xlabel()
@@ -1475,6 +1449,7 @@ def lineplot(
             _color = _data.fillcolor
         else:
             _color = None
+
         if _data.line.dash is not None:
             _dash = _data.line.dash
         else:
@@ -1482,16 +1457,14 @@ def lineplot(
 
         legendgroup = set()
 
-        # I think the solution is to always plot the rgba color!
-
         if _color is not None:
             name = color_legend_map.get(",".join(_color.split(",")[:3]))
             if name is not None:
                 legendgroup.add(name)
 
-        dashname = dash_legend_map.get(_dash)
-        if style is not None and dashname is not None:
-            legendgroup.add(dashname)
+        stylename = style_legend_map.get(_dash)
+        if style is not None and stylename is not None:
+            legendgroup.add(stylename)
 
         if legendgroup and not _data.hoverinfo == "skip":
             _data.legendgroup = ", ".join(legendgroup)
