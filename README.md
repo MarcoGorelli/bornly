@@ -26,7 +26,8 @@ $ pip install -U bornly
 import bornly as bns
 
 fmri = bns.load_dataset("fmri")
-bns.lineplot(data=fmri, x="timepoint", y="signal", hue="event")
+ax = bns.lineplot(data=fmri, x="timepoint", y="signal", hue="event")
+ax.figure
 ```
 
 ![lineplot](img/lineplot.png)
@@ -37,7 +38,8 @@ bns.lineplot(data=fmri, x="timepoint", y="signal", hue="event")
 import bornly as bns
 
 tips = bns.load_dataset("tips")
-bns.barplot(x="day", y="total_bill", data=tips, hue="time")
+ax = bns.barplot(x="day", y="total_bill", data=tips, hue="time")
+ax.figure
 ```
 
 ![barplot](img/barplot.png)
@@ -48,7 +50,7 @@ bns.barplot(x="day", y="total_bill", data=tips, hue="time")
 import bornly as bns
 
 diamonds = bns.load_dataset("diamonds")
-bns.scatterplot(
+ax = bns.scatterplot(
     x="carat",
     y="price",
     hue="clarity",
@@ -57,6 +59,7 @@ bns.scatterplot(
     sizes=(1, 8),
     data=diamonds,
 )
+ax.figure
 ```
 
 ![scatterplot](img/scatterplot.png)
@@ -67,7 +70,8 @@ bns.scatterplot(
 import bornly as bns
 
 iris = bns.load_dataset("iris")
-bns.kdeplot(data=iris)
+ax = bns.kdeplot(data=iris)
+ax.figure
 ```
 
 ![kdeplot](img/kdeplot.png)
@@ -89,7 +93,8 @@ mask = np.triu(np.ones_like(corr, dtype=bool))
 # Generate a custom diverging colormap
 cmap = bns.diverging_palette(230, 20, as_cmap=True)
 # Draw the heatmap with the mask and correct aspect ratio
-bns.heatmap(corr, mask=mask, cmap=cmap, vmax=0.3, center=0)
+ax = bns.heatmap(corr, mask=mask, cmap=cmap, vmax=0.3, center=0)
+ax.figure
 ```
 
 ![heatmap](img/heatmap.png)
@@ -111,7 +116,8 @@ bns.pairplot(penguins, hue="species")
 import bornly as bns
 
 penguins = bns.load_dataset("penguins")
-bns.histplot(data=penguins, x="flipper_length_mm", hue="species")
+ax = bns.histplot(data=penguins, x="flipper_length_mm", hue="species")
+ax.figure
 ```
 
 ![histplot](img/histplot.png)
